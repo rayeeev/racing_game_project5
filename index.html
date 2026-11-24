@@ -38,5 +38,9 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
 	</div>
 </div>
 <script type="module" src="/src/main.js"></script>
+<script type="module">
+	import { inject } from '@vercel/analytics';
+	inject();
+</script>
 </body>
 </html>
