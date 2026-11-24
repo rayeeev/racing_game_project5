@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crib t05 - lights + shadows</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!--
+mode = dir (default) | csm | tile | spot | sss | custom | lod
+type = pcf (default) | basic | vsm          (renderer.shadowMap.type)
+radius, size (map size), fade=1 (csm), pipeline=1 (render through RenderPipeline + TRAA)
+-->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { pass, mrt, output, velocity, screenUV, color, vec3, vec4, float, Fn, uv, texture, hash, vertexIndex, materialColor, positionWorld, positionLocal, builtinShadowContext, mix, sin } from 'three/tsl';
+import { CSMShadowNode } from 'three/addons/csm/CSMShadowNode.js';
+import { TileShadowNode } from 'three/addons/tsl/shadows/TileShadowNode.js';
+import { sss } from 'three/addons/tsl/display/SSSNode.js';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { leafTexture, checkerTexture, report, str, num, flag } from './_common.js';
+
+const mode = str( 'mode', 'dir' );
+const info = { mode };
+const renderer = new THREE.WebGPURenderer( { antialias: ! flag( 'pipeline' ) && mode !== 'sss', alpha: false } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = { basic: THREE.BasicShadowMap, pcf: THREE.PCFShadowMap, vsm: THREE.VSMShadowMap }[ str( 'type', 'pcf' ) ];
+if ( mode === 'custom' ) renderer.shadowMap.transmitted = true; // required for coloured shadows (material.castShadowNode)
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.2, 800 );
+camera.position.set( 0, 3.2, 12 );
+camera.lookAt( 0, 1.0, - 30 );
+const pmrem = new THREE.PMREMGenerator( renderer );
+scene.environment = pmrem.fromScene( new RoomEnvironment(), 0.04 ).texture;
+pmrem.dispose();
+scene.environmentIntensity = mode === 'spot' ? 0.03 : 0.45;
+scene.backgroundNode = mode === 'spot' ? color( 0x05070b ) : screenUV.y.mix( color( 0x9fb6cc ), color( 0x54606e ) );
+
+const groundTex = checkerTexture( 256, 8, '#8c8f86', '#7b7e76' );
+groundTex.repeat.set( 60, 60 );
+groundTex.anisotropy = 8;
+const ground = new THREE.Mesh( new THREE.PlaneGeometry( 600, 600 ), new THREE.MeshStandardMaterial( { map: groundTex, roughness: 0.9 } ) );
+ground.rotation.x = - Math.PI / 2;
+ground.receiveShadow = true;
+scene.add( ground );
+
+// pillars receding into the distance (cascade test) + small detail objects near the camera
+const pillarGeo = new THREE.BoxGeometry( 0.6, 4, 0.6 );
+const pillarMat = new THREE.MeshStandardMaterial( { color: 0xb8b2a6, roughness: 0.7 } );
+for ( let i = 0; i < 60; i ++ ) for ( const sx of [ - 1, 1 ] ) {
+
+	const p = new THREE.Mesh( pillarGeo, pillarMat );
+	p.position.set( sx * 4.5, 2, 6 - i * 6 );
+	p.castShadow = p.receiveShadow = true;
+	scene.add( p );
+
+}
+
+const knot = new THREE.Mesh( new THREE.TorusKnotGeometry( 0.7, 0.22, 128, 24 ), new THREE.MeshStandardMaterial( { color: 0xb5452c, roughness: 0.4 } ) );
+knot.position.set( - 1.6, 1.3, 3 );
+knot.castShadow = knot.receiveShadow = true;
+scene.add( knot );
+
+// alpha tested foliage card: shadow honours map alpha + alphaTest automatically
+const leaf = leafTexture( 256 );
+const foliage = new THREE.Mesh( new THREE.PlaneGeometry( 2.2, 2.2 ), new THREE.MeshStandardMaterial( { map: leaf, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.8 } ) );
+foliage.material.shadowSide = THREE.DoubleSide;   // which faces render into the shadow map (default: BackSide for FrontSide materials)
+foliage.position.set( 1.8, 1.4, 2.5 );
+foliage.rotation.y = - 0.4;
+foliage.castShadow = foliage.receiveShadow = true;
+scene.add( foliage );
+
+// thin detail (contact shadows)
+for ( let i = 0; i < 12; i ++ ) {
+
+	const s = new THREE.Mesh( new THREE.CylinderGeometry( 0.03, 0.03, 0.5, 8 ), pillarMat );
+	s.position.set( - 0.8 + i * 0.15, 0.25, 6.5 );
+	s.castShadow = s.receiveShadow = true;
+	scene.add( s );
+
+}
+
+// ---------------------------------------------------------------- lights
+const sun = new THREE.DirectionalLight( 0xfff1dd, mode === 'spot' ? 0.02 : 3 );
+sun.position.set( 20, 30, 12 );
+sun.target.position.set( 0, 0, 0 );
+sun.castShadow = mode !== 'spot';
+const size = num( 'size', 2048 );
+sun.shadow.mapSize.set( size, size );
+sun.shadow.bias = - 0.0005;        // depth bias (in shadow clip depth units; negative = towards the light)
+sun.shadow.normalBias = 0.03;      // offset along the surface normal, world units
+sun.shadow.radius = num( 'radius', 1 ); // PCF: Vogel disk radius in texels (5 taps, IGN rotated). VSM: blur radius (with blurSamples)
+sun.shadow.blurSamples = 8;        // VSM only
+sun.shadow.intensity = 1;          // 0..1 shadow darkness
+Object.assign( sun.shadow.camera, { left: - 40, right: 40, top: 40, bottom: - 40, near: 1, far: 120 } );
+scene.add( sun, sun.target );      // light + target must be in the scene
+
+let csm = null;
+
+if ( mode === 'csm' ) {
+
+	// the base shadow settings (mapSize, bias, normalBias, radius, camera.near/far) are cloned for every cascade
+	sun.shadow.camera.near = 1;
+	sun.shadow.camera.far = 500;                 // must cover lightMargin + depth of the cascade box
+	csm = new CSMShadowNode( sun, { cascades: 3, maxFar: 180, mode: 'practical', lightMargin: 100 } ); // mode: uniform | logarithmic | practical | custom (+customSplitsCallback)
+	csm.fade = flag( 'fade' );                   // cross-fade between cascades (property, not a constructor option)
+	sun.shadow.shadowNode = csm;
+
+} else if ( mode === 'tile' ) {
+
+	const tsm = new TileShadowNode( sun, { tilesX: 2, tilesY: 2 } ); // the shadow frustum is split into tiles, each `mapSize` large
+	sun.shadow.shadowNode = tsm;
+
+} else if ( mode === 'spot' ) {
+
+	// headlights: SpotLight + shadow + projected cookie (light.map)
+	const c = document.createElement( 'canvas' );
+	c.width = c.height = 256;
+	const g = c.getContext( '2d' );
+	const grd = g.createRadialGradient( 128, 150, 10, 128, 128, 128 );
+	grd.addColorStop( 0, '#ffffff' ); grd.addColorStop( 0.55, '#c8d4ff' ); grd.addColorStop( 1, '#000000' );
+	g.fillStyle = grd; g.fillRect( 0, 0, 256, 256 );
+	g.fillStyle = '#000'; g.fillRect( 0, 0, 256, 92 );         // sharp cut-off above the horizon
+	const cookie = new THREE.CanvasTexture( c );
+	cookie.colorSpace = THREE.SRGBColorSpace;
+	for ( const sx of [ - 0.7, 0.7 ] ) {
+
+		const spot = new THREE.SpotLight( 0xfff4e0, 400 );      // intensity in candela (physically based units)
+		spot.position.set( sx, 0.7, 9 );
+		spot.target.position.set( sx, 0.2, - 20 );
+		spot.angle = 0.5;
+		spot.penumbra = 0.4;
+		spot.decay = 2;
+		spot.distance = 80;
+		spot.map = cookie;                                       // cookie / gobo
+		spot.castShadow = true;
+		spot.shadow.mapSize.set( 1024, 1024 );
+		spot.shadow.camera.near = 0.3;
+		spot.shadow.camera.far = 80;
+		spot.shadow.bias = - 0.002;
+		spot.shadow.focus = 1;
+		scene.add( spot, spot.target );
+
+	}
+
+} else if ( mode === 'custom' ) {
+
+	// coloured, semi transparent shadow (needs renderer.shadowMap.transmitted = true)
+	const glassMat = new THREE.MeshPhysicalNodeMaterial( { color: 0x33aaff, transparent: true, opacity: 0.35, roughness: 0.05 } );
+	glassMat.castShadowNode = vec4( 0.2, 0.6, 1.0, 0.6 );        // rgb = shadow tint, a = shadow strength
+	const glass = new THREE.Mesh( new THREE.BoxGeometry( 1.6, 2.2, 0.1 ), glassMat );
+	glass.position.set( 0.2, 1.1, 5 );
+	glass.rotation.y = 0.5;
+	glass.castShadow = true;
+	scene.add( glass );
+
+	// dithered shadow: discard inside castShadowNode
+	const ghostMat = new THREE.MeshStandardNodeMaterial( { color: 0xddcc66 } );
+	ghostMat.castShadowNode = Fn( () => {
+
+		hash( vertexIndex ).greaterThan( 0.5 ).discard();
+		return vec4( 0, 0, 0, 1 );
+
+	} )();
+	const ghost = new THREE.Mesh( new THREE.SphereGeometry( 0.6, 48, 24 ), ghostMat );
+	ghost.position.set( - 3.2, 0.9, 5.5 );
+	ghost.castShadow = true;
+	scene.add( ghost );
+
+	// receivedShadowNode: tint the shadow this material receives
+	ground.material = new THREE.MeshStandardNodeMaterial( { map: groundTex, roughness: 0.9 } );
+	ground.material.receivedShadowNode = Fn( ( [ shadow ] ) => mix( vec3( 1.0, 0.25, 0.25 ), vec3( 1 ), shadow ) ); // shadow: 0..1 (1 = lit); here: reddish, lighter shadows
+
+	// mask only in the shadow pass
+	const maskMat = new THREE.MeshStandardNodeMaterial( { color: 0x66dd88 } );
+	maskMat.maskShadowNode = sin( positionLocal.y.mul( 30 ) ).greaterThan( 0 );
+	const striped = new THREE.Mesh( new THREE.BoxGeometry( 0.8, 2, 0.8 ), maskMat );
+	striped.position.set( 3.4, 1, 6 );
+	striped.castShadow = true;
+	scene.add( striped );
+
+}
+
+let lod = null;
+if ( mode === 'lod' ) {
+
+	// LOD.update() runs for EVERY camera that renders the scene, including shadow cameras (distance to the light!)
+	lod = new THREE.LOD();
+	lod.addLevel( new THREE.Mesh( new THREE.SphereGeometry( 1, 32, 16 ), new THREE.MeshStandardMaterial( { color: 0xff5555 } ) ), 0 );
+	lod.addLevel( new THREE.Mesh( new THREE.BoxGeometry( 1.6, 1.6, 1.6 ), new THREE.MeshStandardMaterial( { color: 0x55aaff } ) ), 30 );
+	lod.levels.forEach( ( l ) => { l.object.castShadow = true; } );
+	lod.position.set( 0, 1.6, 4 );
+	if ( flag( 'manual' ) ) lod.autoUpdate = false;
+	scene.add( lod );
+
+}
+
+// ---------------------------------------------------------------- render
+let pipeline = null;
+if ( mode === 'sss' ) {
+
+	pipeline = new THREE.RenderPipeline( renderer );
+	const prePass = pass( scene, camera );
+	prePass.transparent = false;
+	prePass.setMRT( mrt( { output: vec4( 0 ), velocity } ) );   // depth + velocity only
+	const depth = prePass.getTextureNode( 'depth' ), vel = prePass.getTextureNode( 'velocity' );
+	const scenePass = pass( scene, camera );
+	const sssPass = sss( depth, camera, sun );
+	sssPass.maxDistance.value = 0.25;
+	sssPass.thickness.value = 0.02;
+	sssPass.quality.value = 0.5;
+	sssPass.useTemporalFiltering = true;                           // needs TRAA
+	if ( ! flag( 'off' ) ) scenePass.contextNode = builtinShadowContext( sssPass.getTextureNode().sample( screenUV ).r, sun ); // multiplies the shadow of THIS light
+	pipeline.outputNode = traa( scenePass, depth, vel, camera );
+
+} else if ( flag( 'pipeline' ) ) {
+
+	pipeline = new THREE.RenderPipeline( renderer );
+	const scenePass = pass( scene, camera );
+	scenePass.setMRT( mrt( { output, velocity } ) );
+	pipeline.outputNode = traa( scenePass.getTextureNode( 'output' ), scenePass.getTextureNode( 'depth' ), scenePass.getTextureNode( 'velocity' ), camera );
+
+}
+
+const render = () => ( pipeline ? pipeline.render() : renderer.render( scene, camera ) );
+
+let frame = 0;
+renderer.setAnimationLoop( () => {
+
+	if ( lod && flag( 'manual' ) ) lod.update( camera );
+	render();
+	frame ++;
+
+	if ( frame === 20 && csm ) {
+
+		// after a resize / fov / near / far change the cascades must be rebuilt
+		camera.fov = 50; camera.updateProjectionMatrix();
+		csm.updateFrustums();
+		info.csm = { cascades: csm.cascades, breaks: csm.breaks.map( ( b ) => + b.toFixed( 3 ) ), lights: csm.lights.length,
+			camIsMain: csm.camera === camera,
+			extents: csm.lights.map( ( l ) => + ( l.shadow.camera.right - l.shadow.camera.left ).toFixed( 1 ) ),
+			mapSize: csm.lights[ 0 ].shadow.mapSize.toArray(), bias: csm.lights.map( ( l ) => l.shadow.bias ) };
+
+	}
+
+	if ( frame === 45 ) {
+
+		info.render = { frameCalls: renderer.info.render.frameCalls, drawCalls: renderer.info.render.drawCalls, triangles: Math.round( renderer.info.render.triangles ) };
+		info.shadowMap = sun.shadow.map ? { w: sun.shadow.map.width, h: sun.shadow.map.height, depth: sun.shadow.map.depth } : null;
+		if ( lod ) info.lod = { levelAfterRender: lod.getCurrentLevel(), distToCamera: + camera.position.distanceTo( lod.position ).toFixed( 1 ), distToLight: + sun.position.distanceTo( lod.position ).toFixed( 1 ) };
+		info.memory = { texturesMB: Math.round( renderer.info.memory.texturesSize / 1048576 ) };
+		report( info );
+
+	}
+
+} );
+</script>
+</body>
+</html>

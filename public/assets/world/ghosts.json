@@ -1,0 +1,74 @@
+{
+	"trackLength": 5315,
+	"car": "sports_car",
+	"dry": {
+		"gold": {
+			"file": "ghost_gold.bin",
+			"time": 131.397,
+			"sectors": [
+				50.079,
+				34.32,
+				46.997
+			],
+			"skill": 1.03,
+			"bytes": 73608
+		},
+		"silver": {
+			"file": "ghost_silver.bin",
+			"time": 137.209,
+			"sectors": [
+				52.316,
+				35.887,
+				49.006
+			],
+			"skill": 0.91,
+			"bytes": 76884
+		},
+		"bronze": {
+			"file": "ghost_bronze.bin",
+			"time": 146.192,
+			"sectors": [
+				55.719,
+				38.366,
+				52.107
+			],
+			"skill": 0.78,
+			"bytes": 81896
+		}
+	},
+	"wet": {
+		"gold": {
+			"file": "ghost_gold_wet.bin",
+			"time": 151.521,
+			"sectors": [
+				57.792,
+				39.798,
+				53.93
+			],
+			"skill": 0.99,
+			"bytes": 84892
+		},
+		"silver": {
+			"file": "ghost_silver_wet.bin",
+			"time": 159.325,
+			"sectors": [
+				60.811,
+				41.846,
+				56.669
+			],
+			"skill": 0.89,
+			"bytes": 89260
+		},
+		"bronze": {
+			"file": "ghost_bronze_wet.bin",
+			"time": 171.015,
+			"sectors": [
+				65.383,
+				44.888,
+				60.745
+			],
+			"skill": 0.77,
+			"bytes": 95812
+		}
+	}
+}

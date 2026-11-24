@@ -1,0 +1,994 @@
+{
+ "category": "plants",
+ "generated": "2026-11-18",
+ "assets": [
+  {
+   "id": "grass",
+   "file": "/assets/plants/grass.glb",
+   "source": "https://polyhaven.com/a/grass_medium_01",
+   "sources": [
+    "https://polyhaven.com/a/grass_medium_01",
+    "https://polyhaven.com/a/grass_medium_02"
+   ],
+   "author": "Rob Tuytel, Rico Cilliers (Poly Haven)",
+   "license": "CC0",
+   "textureResolution": 1024,
+   "bytes": 930092,
+   "category": "grass",
+   "texelDensity": 700,
+   "alphaCutoff": 0.5,
+   "variants": [
+    {
+     "name": "grass_short",
+     "size": [
+      0.823,
+      0.165,
+      0.906
+     ],
+     "radius": 0.514,
+     "height": 0.165,
+     "lods": [
+      {
+       "node": "grass_short_LOD0",
+       "triangles": 144
+      },
+      {
+       "node": "grass_short_LOD1",
+       "triangles": 40
+      }
+     ],
+     "avgColor": "#4d5523",
+     "colorRoot": "#555925",
+     "colorTip": "#404c20",
+     "windAmplitude": 0.02,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.02,
+     "notes": "short dense meadow turf; main filler"
+    },
+    {
+     "name": "grass_mid",
+     "size": [
+      0.837,
+      0.28,
+      0.999
+     ],
+     "radius": 0.566,
+     "height": 0.28,
+     "lods": [
+      {
+       "node": "grass_mid_LOD0",
+       "triangles": 144
+      },
+      {
+       "node": "grass_mid_LOD1",
+       "triangles": 40
+      }
+     ],
+     "avgColor": "#505527",
+     "colorRoot": "#565827",
+     "colorTip": "#5d6042",
+     "windAmplitude": 0.04,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.02,
+     "notes": "medium meadow grass with a few seed heads; main filler"
+    },
+    {
+     "name": "grass_tall",
+     "size": [
+      0.88,
+      0.564,
+      0.908
+     ],
+     "radius": 0.479,
+     "height": 0.564,
+     "lods": [
+      {
+       "node": "grass_tall_LOD0",
+       "triangles": 120
+      },
+      {
+       "node": "grass_tall_LOD1",
+       "triangles": 32
+      }
+     ],
+     "avgColor": "#575b33",
+     "colorRoot": "#505427",
+     "colorTip": "#6c6d4f",
+     "windAmplitude": 0.09,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.02,
+     "notes": "tall flowering grass tuft with panicles; accent, 5-15% of instances"
+    },
+    {
+     "name": "grass_dry",
+     "size": [
+      0.832,
+      0.392,
+      0.894
+     ],
+     "radius": 0.479,
+     "height": 0.392,
+     "lods": [
+      {
+       "node": "grass_dry_LOD0",
+       "triangles": 120
+      },
+      {
+       "node": "grass_dry_LOD1",
+       "triangles": 32
+      }
+     ],
+     "avgColor": "#7b6f5a",
+     "colorRoot": "#7b6c56",
+     "colorTip": "#817a6b",
+     "windAmplitude": 0.06,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.02,
+     "notes": "dry straw-coloured tuft; scree edges, road verges, sunny slopes"
+    },
+    {
+     "name": "grass_tuft",
+     "size": [
+      0.889,
+      0.425,
+      0.788
+     ],
+     "radius": 0.479,
+     "height": 0.425,
+     "lods": [
+      {
+       "node": "grass_tuft_LOD0",
+       "triangles": 120
+      },
+      {
+       "node": "grass_tuft_LOD1",
+       "triangles": 32
+      }
+     ],
+     "avgColor": "#908762",
+     "colorRoot": "#938864",
+     "colorTip": "#907a63",
+     "windAmplitude": 0.08,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.02,
+     "notes": "loose wild tussock, green blades mixed with dead straw; rocky ground, forest edge"
+    }
+   ]
+  },
+  {
+   "id": "dandelion_01",
+   "file": "/assets/plants/dandelion_01.glb",
+   "source": "https://polyhaven.com/a/dandelion_01",
+   "author": "Rob Tuytel, Rico Cilliers (Poly Haven)",
+   "license": "CC0",
+   "textureResolution": 512,
+   "bytes": 180036,
+   "category": "flowers",
+   "texelDensity": 383,
+   "alphaCutoff": 0.5,
+   "flowerColor": "yellow",
+   "variants": [
+    {
+     "name": "dandelion_a",
+     "size": [
+      0.349,
+      0.296,
+      0.388
+     ],
+     "radius": 0.217,
+     "height": 0.296,
+     "lods": [
+      {
+       "node": "dandelion_a_LOD0",
+       "triangles": 28
+      },
+      {
+       "node": "dandelion_a_LOD1",
+       "triangles": 10
+      }
+     ],
+     "avgColor": "#6e6624",
+     "colorRoot": "#5c5f25",
+     "colorTip": "#b08915",
+     "windAmplitude": 0.012,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0,
+     "notes": "yellow dandelion, 2 flower heads + bud, leaf rosette"
+    },
+    {
+     "name": "dandelion_b",
+     "size": [
+      0.319,
+      0.205,
+      0.343
+     ],
+     "radius": 0.222,
+     "height": 0.205,
+     "lods": [
+      {
+       "node": "dandelion_b_LOD0",
+       "triangles": 28
+      },
+      {
+       "node": "dandelion_b_LOD1",
+       "triangles": 10
+      }
+     ],
+     "avgColor": "#6d6622",
+     "colorRoot": "#5a5e24",
+     "colorTip": "#a9841a",
+     "windAmplitude": 0.01,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0,
+     "notes": "yellow dandelion, 2 flower heads, flatter rosette"
+    },
+    {
+     "name": "dandelion_patch",
+     "size": [
+      0.668,
+      0.296,
+      0.663
+     ],
+     "radius": 0.4,
+     "height": 0.296,
+     "lods": [
+      {
+       "node": "dandelion_patch_LOD0",
+       "triangles": 84
+      },
+      {
+       "node": "dandelion_patch_LOD1",
+       "triangles": 30
+      }
+     ],
+     "avgColor": "#6e6623",
+     "colorRoot": "#5b5f25",
+     "colorTip": "#ad8717",
+     "windAmplitude": 0.012,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0,
+     "notes": "group of 3 dandelions (6 flower heads) - the best \"yellow dots\" per instance"
+    }
+   ]
+  },
+  {
+   "id": "flower_heliophila",
+   "file": "/assets/plants/flower_heliophila.glb",
+   "source": "https://polyhaven.com/a/flower_heliophila",
+   "author": "James Ray Cock, Jenelle van Heerden (Poly Haven)",
+   "license": "CC0",
+   "textureResolution": 1024,
+   "bytes": 594744,
+   "category": "flowers",
+   "texelDensity": 407,
+   "alphaCutoff": 0.5,
+   "flowerColor": "white",
+   "variants": [
+    {
+     "name": "heliophila_small",
+     "size": [
+      0.376,
+      0.271,
+      0.292
+     ],
+     "radius": 0.249,
+     "height": 0.271,
+     "lods": [
+      {
+       "node": "heliophila_small_LOD0",
+       "triangles": 34
+      },
+      {
+       "node": "heliophila_small_LOD1",
+       "triangles": 10
+      }
+     ],
+     "avgColor": "#979177",
+     "colorRoot": "#847e4a",
+     "colorTip": "#a39e8e",
+     "windAmplitude": 0.03,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0,
+     "notes": "white star flowers on wiry stems (passes as stitchwort / saxifrage)"
+    },
+    {
+     "name": "heliophila_medium",
+     "size": [
+      0.762,
+      0.371,
+      0.646
+     ],
+     "radius": 0.442,
+     "height": 0.371,
+     "lods": [
+      {
+       "node": "heliophila_medium_LOD0",
+       "triangles": 34
+      },
+      {
+       "node": "heliophila_medium_LOD1",
+       "triangles": 10
+      }
+     ],
+     "avgColor": "#95906e",
+     "colorRoot": "#8c8856",
+     "colorTip": "#a29c87",
+     "windAmplitude": 0.035,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0,
+     "notes": "larger loose patch of the same white flower"
+    }
+   ]
+  },
+  {
+   "id": "periwinkle_plant",
+   "file": "/assets/plants/periwinkle_plant.glb",
+   "source": "https://polyhaven.com/a/periwinkle_plant",
+   "author": "Amal Kumar (Poly Haven)",
+   "license": "CC0",
+   "textureResolution": 512,
+   "bytes": 170484,
+   "category": "flowers",
+   "texelDensity": 684,
+   "alphaCutoff": 0.5,
+   "flowerColor": "blue-violet",
+   "variants": [
+    {
+     "name": "periwinkle_small",
+     "size": [
+      0.148,
+      0.253,
+      0.169
+     ],
+     "radius": 0.095,
+     "height": 0.253,
+     "lods": [
+      {
+       "node": "periwinkle_small_LOD0",
+       "triangles": 34
+      },
+      {
+       "node": "periwinkle_small_LOD1",
+       "triangles": 12
+      }
+     ],
+     "avgColor": "#746e4d",
+     "colorRoot": "#765539",
+     "colorTip": "#706c5b",
+     "windAmplitude": 0.015,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0,
+     "notes": "blue-violet 5-petal flowers (petals hue-shifted from the pink source), glossy leaves"
+    },
+    {
+     "name": "periwinkle_tall",
+     "size": [
+      0.21,
+      0.354,
+      0.181
+     ],
+     "radius": 0.112,
+     "height": 0.354,
+     "lods": [
+      {
+       "node": "periwinkle_tall_LOD0",
+       "triangles": 34
+      },
+      {
+       "node": "periwinkle_tall_LOD1",
+       "triangles": 12
+      }
+     ],
+     "avgColor": "#7c7052",
+     "colorRoot": "#7d6755",
+     "colorTip": "#7a7255",
+     "windAmplitude": 0.025,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0,
+     "notes": "taller stem of the same blue-violet flower"
+    },
+    {
+     "name": "periwinkle_patch",
+     "size": [
+      0.369,
+      0.354,
+      0.322
+     ],
+     "radius": 0.215,
+     "height": 0.354,
+     "lods": [
+      {
+       "node": "periwinkle_patch_LOD0",
+       "triangles": 136
+      },
+      {
+       "node": "periwinkle_patch_LOD1",
+       "triangles": 48
+      }
+     ],
+     "avgColor": "#796f51",
+     "colorRoot": "#7c6552",
+     "colorTip": "#767058",
+     "windAmplitude": 0.02,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0,
+     "notes": "group of 4 stems (about 12 blue-violet flowers)"
+    }
+   ]
+  },
+  {
+   "id": "fern_02",
+   "file": "/assets/plants/fern_02.glb",
+   "source": "https://polyhaven.com/a/fern_02",
+   "author": "Rob Tuytel, Rico Cilliers (Poly Haven)",
+   "license": "CC0",
+   "textureResolution": 1024,
+   "bytes": 384600,
+   "category": "fern",
+   "alphaCutoff": 0.5,
+   "variants": [
+    {
+     "name": "fern_large",
+     "size": [
+      0.981,
+      0.392,
+      0.88
+     ],
+     "radius": 0.607,
+     "height": 0.392,
+     "lods": [
+      {
+       "node": "fern_large_LOD0",
+       "triangles": 560
+      },
+      {
+       "node": "fern_large_LOD1",
+       "triangles": 120
+      }
+     ],
+     "avgColor": "#4b5b22",
+     "colorRoot": "#4c5a21",
+     "colorTip": "#536329",
+     "windAmplitude": 0.05,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.01,
+     "notes": "large fern, 20 arching fronds; conifer forest floor, shady banks"
+    },
+    {
+     "name": "fern_small_a",
+     "size": [
+      0.552,
+      0.255,
+      0.61
+     ],
+     "radius": 0.344,
+     "height": 0.255,
+     "lods": [
+      {
+       "node": "fern_small_a_LOD0",
+       "triangles": 280
+      },
+      {
+       "node": "fern_small_a_LOD1",
+       "triangles": 112
+      }
+     ],
+     "avgColor": "#495923",
+     "colorRoot": "#4b5921",
+     "colorTip": "#4f6421",
+     "windAmplitude": 0.04,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.01,
+     "notes": "small fern, 7 fronds"
+    },
+    {
+     "name": "fern_small_b",
+     "size": [
+      0.572,
+      0.187,
+      0.59
+     ],
+     "radius": 0.396,
+     "height": 0.187,
+     "lods": [
+      {
+       "node": "fern_small_b_LOD0",
+       "triangles": 280
+      },
+      {
+       "node": "fern_small_b_LOD1",
+       "triangles": 112
+      }
+     ],
+     "avgColor": "#4c5e21",
+     "colorRoot": "#4f5c1e",
+     "colorTip": "#4e6225",
+     "windAmplitude": 0.04,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.01,
+     "notes": "small flat fern, 7 fronds"
+    }
+   ]
+  },
+  {
+   "id": "weed_plant_02",
+   "file": "/assets/plants/weed_plant_02.glb",
+   "source": "https://polyhaven.com/a/weed_plant_02",
+   "author": "Rob Tuytel, Rico Cilliers (Poly Haven)",
+   "license": "CC0",
+   "textureResolution": 1024,
+   "bytes": 582528,
+   "category": "forest",
+   "alphaCutoff": 0.5,
+   "variants": [
+    {
+     "name": "dock_a",
+     "size": [
+      0.326,
+      0.094,
+      0.431
+     ],
+     "radius": 0.282,
+     "height": 0.094,
+     "lods": [
+      {
+       "node": "dock_a_LOD0",
+       "triangles": 512
+      },
+      {
+       "node": "dock_a_LOD1",
+       "triangles": 96
+      }
+     ],
+     "avgColor": "#4e5325",
+     "colorRoot": "#545425",
+     "colorTip": "#465022",
+     "windAmplitude": 0.02,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.01,
+     "notes": "broad-leaf dock rosette (8 leaves); damp meadow, ditch, forest edge"
+    },
+    {
+     "name": "dock_b",
+     "size": [
+      0.278,
+      0.097,
+      0.295
+     ],
+     "radius": 0.197,
+     "height": 0.097,
+     "lods": [
+      {
+       "node": "dock_b_LOD0",
+       "triangles": 384
+      },
+      {
+       "node": "dock_b_LOD1",
+       "triangles": 72
+      }
+     ],
+     "avgColor": "#515425",
+     "colorRoot": "#575425",
+     "colorTip": "#454f22",
+     "windAmplitude": 0.02,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.01,
+     "notes": "broad-leaf dock rosette (6 leaves)"
+    }
+   ]
+  },
+  {
+   "id": "searsia_lucida",
+   "file": "/assets/plants/searsia_lucida.glb",
+   "source": "https://polyhaven.com/a/searsia_lucida",
+   "author": "James Ray Cock, Jenelle van Heerden (Poly Haven)",
+   "license": "CC0",
+   "textureResolution": 1024,
+   "bytes": 763144,
+   "category": "shrub",
+   "alphaCutoff": 0.5,
+   "materials": [
+    "searsia_lucida_leaves (MASK, double sided)",
+    "searsia_lucida_bark (OPAQUE)"
+   ],
+   "variants": [
+    {
+     "name": "bush_large",
+     "size": [
+      1.484,
+      1.521,
+      1.287
+     ],
+     "radius": 0.919,
+     "height": 1.521,
+     "lods": [
+      {
+       "node": "bush_large_LOD0",
+       "triangles": 2500
+      },
+      {
+       "node": "bush_large_LOD1",
+       "triangles": 500
+      },
+      {
+       "node": "bush_large_LOD2",
+       "triangles": 80
+      }
+     ],
+     "avgColor": "#546130",
+     "colorRoot": "#827663",
+     "colorTip": "#546130",
+     "windAmplitude": 0.1,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.03,
+     "notes": "dense green broadleaf bush 1.7 m (reads as green alder / shrub willow); forest edge, slopes above the road"
+    },
+    {
+     "name": "bush_medium",
+     "size": [
+      1.102,
+      1.287,
+      0.953
+     ],
+     "radius": 0.59,
+     "height": 1.287,
+     "lods": [
+      {
+       "node": "bush_medium_LOD0",
+       "triangles": 2017
+      },
+      {
+       "node": "bush_medium_LOD1",
+       "triangles": 426
+      },
+      {
+       "node": "bush_medium_LOD2",
+       "triangles": 64
+      }
+     ],
+     "avgColor": "#546130",
+     "colorRoot": "#827663",
+     "colorTip": "#546130",
+     "windAmplitude": 0.09,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.03,
+     "notes": "same species, 1.4 m"
+    },
+    {
+     "name": "bush_small",
+     "size": [
+      1.044,
+      1.042,
+      0.696
+     ],
+     "radius": 0.56,
+     "height": 1.042,
+     "lods": [
+      {
+       "node": "bush_small_LOD0",
+       "triangles": 1160
+      },
+      {
+       "node": "bush_small_LOD1",
+       "triangles": 258
+      },
+      {
+       "node": "bush_small_LOD2",
+       "triangles": 32
+      }
+     ],
+     "avgColor": "#546130",
+     "colorRoot": "#827663",
+     "colorTip": "#546130",
+     "windAmplitude": 0.07,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.03,
+     "notes": "same species, 1.0 m, wide"
+    },
+    {
+     "name": "bush_tiny",
+     "size": [
+      0.637,
+      0.765,
+      0.48
+     ],
+     "radius": 0.355,
+     "height": 0.765,
+     "lods": [
+      {
+       "node": "bush_tiny_LOD0",
+       "triangles": 466
+      },
+      {
+       "node": "bush_tiny_LOD1",
+       "triangles": 168
+      },
+      {
+       "node": "bush_tiny_LOD2",
+       "triangles": 28
+      }
+     ],
+     "avgColor": "#546130",
+     "colorRoot": "#827663",
+     "colorTip": "#546130",
+     "windAmplitude": 0.05,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.03,
+     "notes": "same species, young plant 0.75 m"
+    }
+   ]
+  },
+  {
+   "id": "shrub_02",
+   "file": "/assets/plants/shrub_02.glb",
+   "source": "https://polyhaven.com/a/shrub_02",
+   "author": "Rico Cilliers (Poly Haven)",
+   "license": "CC0",
+   "textureResolution": 1024,
+   "bytes": 539396,
+   "category": "shrub",
+   "alphaCutoff": 0.5,
+   "variants": [
+    {
+     "name": "willow_a",
+     "size": [
+      1.304,
+      1.689,
+      1.633
+     ],
+     "radius": 0.944,
+     "height": 1.689,
+     "lods": [
+      {
+       "node": "willow_a_LOD0",
+       "triangles": 2404
+      },
+      {
+       "node": "willow_a_LOD1",
+       "triangles": 412
+      },
+      {
+       "node": "willow_a_LOD2",
+       "triangles": 70
+      }
+     ],
+     "avgColor": "#76674b",
+     "colorRoot": "#756045",
+     "colorTip": "#777051",
+     "windAmplitude": 0.12,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.01,
+     "notes": "loose willow-like shrub, long grey-green leaves on reddish shoots; stream banks, damp meadow edges"
+    },
+    {
+     "name": "willow_b",
+     "size": [
+      1.109,
+      1.506,
+      1.279
+     ],
+     "radius": 0.935,
+     "height": 1.506,
+     "lods": [
+      {
+       "node": "willow_b_LOD0",
+       "triangles": 2080
+      },
+      {
+       "node": "willow_b_LOD1",
+       "triangles": 362
+      },
+      {
+       "node": "willow_b_LOD2",
+       "triangles": 52
+      }
+     ],
+     "avgColor": "#75674a",
+     "colorRoot": "#746247",
+     "colorTip": "#766f51",
+     "windAmplitude": 0.11,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.01,
+     "notes": "as willow_a, narrower"
+    },
+    {
+     "name": "willow_c",
+     "size": [
+      1.764,
+      1.3,
+      2.278
+     ],
+     "radius": 1.181,
+     "height": 1.3,
+     "lods": [
+      {
+       "node": "willow_c_LOD0",
+       "triangles": 2824
+      },
+      {
+       "node": "willow_c_LOD1",
+       "triangles": 477
+      },
+      {
+       "node": "willow_c_LOD2",
+       "triangles": 70
+      }
+     ],
+     "avgColor": "#76684b",
+     "colorRoot": "#756246",
+     "colorTip": "#777556",
+     "windAmplitude": 0.1,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.01,
+     "notes": "as willow_a, wide and low"
+    },
+    {
+     "name": "willow_d",
+     "size": [
+      1.074,
+      1.215,
+      1.097
+     ],
+     "radius": 0.936,
+     "height": 1.215,
+     "lods": [
+      {
+       "node": "willow_d_LOD0",
+       "triangles": 2033
+      },
+      {
+       "node": "willow_d_LOD1",
+       "triangles": 357
+      },
+      {
+       "node": "willow_d_LOD2",
+       "triangles": 74
+      }
+     ],
+     "avgColor": "#76664a",
+     "colorRoot": "#755f44",
+     "colorTip": "#787354",
+     "windAmplitude": 0.09,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.01,
+     "notes": "as willow_a, small"
+    }
+   ]
+  },
+  {
+   "id": "wild_rooibos_bush",
+   "file": "/assets/plants/wild_rooibos_bush.glb",
+   "source": "https://polyhaven.com/a/wild_rooibos_bush",
+   "author": "James Ray Cock, Jenelle van Heerden (Poly Haven)",
+   "license": "CC0",
+   "textureResolution": 1024,
+   "bytes": 743640,
+   "category": "shrub",
+   "alphaCutoff": 0.5,
+   "materials": [
+    "wild_rooibos_bush_leaves (MASK, double sided)",
+    "wild_rooibos_bush_bark (OPAQUE)"
+   ],
+   "variants": [
+    {
+     "name": "heath_large",
+     "size": [
+      0.719,
+      0.546,
+      0.82
+     ],
+     "radius": 0.505,
+     "height": 0.546,
+     "lods": [
+      {
+       "node": "heath_large_LOD0",
+       "triangles": 1286
+      },
+      {
+       "node": "heath_large_LOD1",
+       "triangles": 284
+      },
+      {
+       "node": "heath_large_LOD2",
+       "triangles": 38
+      }
+     ],
+     "avgColor": "#53471d",
+     "colorRoot": "#55493d",
+     "colorTip": "#53471d",
+     "windAmplitude": 0.05,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.03,
+     "notes": "low needle-leaved heath shrub 0.55 m, olive-yellow (reads as broom / dwarf juniper); dry sunny slopes, scree edges"
+    },
+    {
+     "name": "heath_small",
+     "size": [
+      0.545,
+      0.514,
+      0.493
+     ],
+     "radius": 0.314,
+     "height": 0.514,
+     "lods": [
+      {
+       "node": "heath_small_LOD0",
+       "triangles": 723
+      },
+      {
+       "node": "heath_small_LOD1",
+       "triangles": 161
+      },
+      {
+       "node": "heath_small_LOD2",
+       "triangles": 28
+      }
+     ],
+     "avgColor": "#53471d",
+     "colorRoot": "#55493d",
+     "colorTip": "#53471d",
+     "windAmplitude": 0.04,
+     "collider": {
+      "type": "none"
+     },
+     "sink": 0.03,
+     "notes": "same species, 0.5 m, narrower"
+    }
+   ]
+  }
+ ]
+}

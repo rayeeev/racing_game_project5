@@ -1,0 +1,1527 @@
+{
+	"generator": "tools/assets/tex-build.mjs + tools/assets/tex-fx.mjs",
+	"conventions": {
+		"albedo": "sRGB JPG (set texture.colorSpace = SRGBColorSpace)",
+		"normal": "tangent-space, OpenGL convention (+Y up = Poly Haven nor_gl), linear data (NoColorSpace)",
+		"arm": "linear data: R = ambient occlusion, G = roughness, B = metalness",
+		"height": "linear data, single channel 8-bit, 1024x1024, white = up. displacementMeters = ( sample - heightMean ) * heightScaleMeters, where heightScaleMeters (black-to-white range) was calibrated by least-squares matching the height-field slopes to the normal map (heightFit.corrU/corrV = correlation of that fit; both positive confirms the OpenGL normal convention)",
+		"tiling": "all maps wrap seamlessly (RepeatWrapping); uv = worldPositionMeters / tileSizeMeters",
+		"avgColorLinear": "linear-sRGB mean of the albedo (what the smallest mip converges to); use for distant terrain colour / far LOD",
+		"recommended": "optional per-set hints: albedoTint = linear RGB multiplier applied to the albedo sample (may exceed 1); aoIntensity = strength to apply the AO channel with (ao = mix(1, aoSample, aoIntensity)); roughnessBias = value to add to the roughness sample; detailRepeatMeters = repeat size for an additional detail-normal sample; note/aoNote = why"
+	},
+	"sets": [
+		{
+			"id": "grass_meadow",
+			"intent": "natural green alpine meadow ground (short grass, moss, dry stalks, twigs)",
+			"source": "https://polyhaven.com/a/forrest_ground_01",
+			"polyhavenId": "forrest_ground_01",
+			"polyhavenName": "Forest Ground 01",
+			"author": "Rob Tuytel",
+			"license": "CC0",
+			"resolution": 2048,
+			"heightResolution": 1024,
+			"tileSizeMeters": 2,
+			"texelsPerMeter": 1024,
+			"avgColorLinear": [
+				0.2948,
+				0.251,
+				0.1225
+			],
+			"avgColorSRGB": "#948962",
+			"avgRoughness": 0.936,
+			"roughnessRange": [
+				0.78,
+				1
+			],
+			"avgAO": 0.477,
+			"avgMetalness": 0.011,
+			"heightMean": 0.372,
+			"heightRange": [
+				0,
+				0.871
+			],
+			"heightScaleMeters": 0.0253,
+			"heightFit": {
+				"scaleU": 0.0253,
+				"scaleV": 0.0253,
+				"corrU": 0.69,
+				"corrV": 0.69
+			},
+			"normalMeanSlope": 0.4254,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1.18,
+						"u": 1.3
+					},
+					"normal": {
+						"v": 1.22,
+						"u": 1.19
+					},
+					"height": {
+						"v": 1.17,
+						"u": 1.25
+					}
+				},
+				"bakedLightCorrelation": 0.254,
+				"bakedLightXY": [
+					0.254,
+					-0.015
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/grass_meadow/albedo.jpg",
+				"normal": "/assets/textures/grass_meadow/normal.jpg",
+				"arm": "/assets/textures/grass_meadow/arm.jpg",
+				"height": "/assets/textures/grass_meadow/height.jpg"
+			},
+			"bytes": 11257755,
+			"recommended": {
+				"albedoTint": [
+					0.62,
+					0.88,
+					0.5
+				],
+				"note": "Raw scan is a yellowish green-tan (lots of dry material). Multiply albedo by albedoTint for a fresh alpine-meadow green; use 1,1,1 towards late-summer/dry areas. Meant as the ground under instanced grass blades.",
+				"aoIntensity": 0.5,
+				"aoNote": "AO map is very dark (mean 0.477); use aoMapIntensity ~0.5 (ao = mix(1, aoSample, 0.5)) so ambient light matches the other layers (their mean AO is 0.75-0.97)."
+			},
+			"normalNote": "normal.jpg re-encoded (q97 4:4:4) after clean-up of the Poly Haven nor_gl map: removed constant tilt bias of [4.69, 4.31] deg (x, y)"
+		},
+		{
+			"id": "grass_dry",
+			"intent": "sparse / worn dry grass with soil showing through (transition between meadow and dirt/gravel)",
+			"source": "https://polyhaven.com/a/grass_ground",
+			"polyhavenId": "grass_ground",
+			"polyhavenName": "Grass Ground",
+			"author": "Charlotte Baglioni",
+			"license": "CC0",
+			"resolution": 2048,
+			"heightResolution": 1024,
+			"tileSizeMeters": 2.51,
+			"texelsPerMeter": 816,
+			"avgColorLinear": [
+				0.1593,
+				0.1198,
+				0.0498
+			],
+			"avgColorSRGB": "#6f613f",
+			"avgRoughness": 0.937,
+			"roughnessRange": [
+				0.784,
+				1
+			],
+			"avgAO": 0.798,
+			"avgMetalness": 0.007,
+			"heightMean": 0.344,
+			"heightRange": [
+				0.027,
+				0.875
+			],
+			"heightScaleMeters": 0.013,
+			"heightFit": {
+				"scaleU": 0.013,
+				"scaleV": 0.013,
+				"corrU": 0.733,
+				"corrV": 0.727
+			},
+			"normalMeanSlope": 0.2756,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1.01,
+						"u": 0.99
+					},
+					"normal": {
+						"v": 1.05,
+						"u": 1.25
+					},
+					"height": {
+						"v": 0.96,
+						"u": 1.03
+					}
+				},
+				"bakedLightCorrelation": 0.118,
+				"bakedLightXY": [
+					0.038,
+					-0.111
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/grass_dry/albedo.jpg",
+				"normal": "/assets/textures/grass_dry/normal.jpg",
+				"arm": "/assets/textures/grass_dry/arm.jpg",
+				"height": "/assets/textures/grass_dry/height.jpg"
+			},
+			"bytes": 14338395
+		},
+		{
+			"id": "forest_floor",
+			"intent": "conifer forest floor: carpet of dry pine needles with small twigs and stones",
+			"source": "https://polyhaven.com/a/forrest_ground_03",
+			"polyhavenId": "forrest_ground_03",
+			"polyhavenName": "Forest Ground 03",
+			"author": "Rob Tuytel",
+			"license": "CC0",
+			"resolution": 2048,
+			"heightResolution": 1024,
+			"tileSizeMeters": 2,
+			"texelsPerMeter": 1024,
+			"avgColorLinear": [
+				0.3564,
+				0.2351,
+				0.1481
+			],
+			"avgColorSRGB": "#a1856b",
+			"avgRoughness": 0.885,
+			"roughnessRange": [
+				0.702,
+				1
+			],
+			"avgAO": 0.451,
+			"avgMetalness": 0.012,
+			"heightMean": 0.27,
+			"heightRange": [
+				0.012,
+				0.639
+			],
+			"heightScaleMeters": 0.0223,
+			"heightFit": {
+				"scaleU": 0.0223,
+				"scaleV": 0.0223,
+				"corrU": 0.536,
+				"corrV": 0.535
+			},
+			"normalMeanSlope": 0.4826,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 0.96,
+						"u": 1.03
+					},
+					"normal": {
+						"v": 0.93,
+						"u": 1.05
+					},
+					"height": {
+						"v": 0.96,
+						"u": 1.17
+					}
+				},
+				"bakedLightCorrelation": 0.324,
+				"bakedLightXY": [
+					-0.201,
+					-0.254
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/forest_floor/albedo.jpg",
+				"normal": "/assets/textures/forest_floor/normal.jpg",
+				"arm": "/assets/textures/forest_floor/arm.jpg",
+				"height": "/assets/textures/forest_floor/height.jpg"
+			},
+			"bytes": 13186832,
+			"recommended": {
+				"albedoTint": [
+					0.58,
+					0.52,
+					0.46
+				],
+				"note": "Raw scan is sun-bleached pale tan needles. Multiply albedo by albedoTint for the darker red-brown duff found under a closed fir canopy.",
+				"aoIntensity": 0.45,
+				"aoNote": "AO map is very dark (mean 0.451); use aoMapIntensity ~0.45 (ao = mix(1, aoSample, 0.45)) so ambient light matches the other layers (their mean AO is 0.75-0.97)."
+			},
+			"normalNote": "normal.jpg re-encoded (q97 4:4:4) after clean-up of the Poly Haven nor_gl map: removed constant tilt bias of [5.39, 5.8] deg (x, y)"
+		},
+		{
+			"id": "dirt",
+			"intent": "grey-brown dry soil / dried mud with fine clods (road cuts, shoulders)",
+			"source": "https://polyhaven.com/a/dry_mud_field_001",
+			"polyhavenId": "dry_mud_field_001",
+			"polyhavenName": "Dry Mud Field 001",
+			"author": "Rob Tuytel, Rico Cilliers",
+			"license": "CC0",
+			"resolution": 2048,
+			"heightResolution": 1024,
+			"tileSizeMeters": 3,
+			"texelsPerMeter": 683,
+			"avgColorLinear": [
+				0.1375,
+				0.1042,
+				0.0645
+			],
+			"avgColorSRGB": "#685b48",
+			"avgRoughness": 0.828,
+			"roughnessRange": [
+				0.38,
+				1
+			],
+			"avgAO": 0.785,
+			"avgMetalness": 0.006,
+			"heightMean": 0.419,
+			"heightRange": [
+				0.09,
+				0.784
+			],
+			"heightScaleMeters": 0.0857,
+			"heightFit": {
+				"scaleU": 0.0861,
+				"scaleV": 0.0853,
+				"corrU": 0.836,
+				"corrV": 0.837
+			},
+			"normalMeanSlope": 0.4282,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 0.94,
+						"u": 0.83
+					},
+					"normal": {
+						"v": 1.21,
+						"u": 1.12
+					},
+					"height": {
+						"v": 1.31,
+						"u": 1.26
+					}
+				},
+				"bakedLightCorrelation": 0.159,
+				"bakedLightXY": [
+					0.035,
+					-0.155
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/dirt/albedo.jpg",
+				"normal": "/assets/textures/dirt/normal.jpg",
+				"arm": "/assets/textures/dirt/arm.jpg",
+				"height": "/assets/textures/dirt/height.jpg"
+			},
+			"bytes": 8449250,
+			"heightNote": "height.jpg re-encoded (source displacement JPG was 3-channel grey) to single-channel greyscale, q95",
+			"normalNote": "normal.jpg re-encoded (q97 4:4:4) after clean-up of the Poly Haven nor_gl map: removed constant tilt bias of [1.05, -0.24] deg (x, y)"
+		},
+		{
+			"id": "gravel",
+			"intent": "neutral grey fine roadside gravel / fine scree",
+			"source": "https://polyhaven.com/a/gravel_floor_03",
+			"polyhavenId": "gravel_floor_03",
+			"polyhavenName": "Gravel Floor 03",
+			"author": "Charlotte Baglioni",
+			"license": "CC0",
+			"resolution": 2048,
+			"heightResolution": 1024,
+			"tileSizeMeters": 2.5,
+			"texelsPerMeter": 819,
+			"avgColorLinear": [
+				0.1712,
+				0.1536,
+				0.1354
+			],
+			"avgColorSRGB": "#736d67",
+			"avgRoughness": 0.96,
+			"roughnessRange": [
+				0.808,
+				1
+			],
+			"avgAO": 0.712,
+			"avgMetalness": 0.01,
+			"heightMean": 0.466,
+			"heightRange": [
+				0.102,
+				0.988
+			],
+			"heightScaleMeters": 0.0181,
+			"heightFit": {
+				"scaleU": 0.0179,
+				"scaleV": 0.0183,
+				"corrU": 0.698,
+				"corrV": 0.676
+			},
+			"normalMeanSlope": 0.4182,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1.01,
+						"u": 1.01
+					},
+					"normal": {
+						"v": 1.24,
+						"u": 1.37
+					},
+					"height": {
+						"v": 0.92,
+						"u": 0.94
+					}
+				},
+				"bakedLightCorrelation": 0.274,
+				"bakedLightXY": [
+					-0.26,
+					-0.088
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/gravel/albedo.jpg",
+				"normal": "/assets/textures/gravel/normal.jpg",
+				"arm": "/assets/textures/gravel/arm.jpg",
+				"height": "/assets/textures/gravel/height.jpg"
+			},
+			"bytes": 15030918
+		},
+		{
+			"id": "rock_cliff",
+			"intent": "grey fractured cliff face (drone scan of a 20 m wall) for triplanar projection on steep slopes",
+			"source": "https://polyhaven.com/a/marble_cliff_05",
+			"polyhavenId": "marble_cliff_05",
+			"polyhavenName": "Marble Cliff 05",
+			"author": "Amal Kumar",
+			"license": "CC0",
+			"resolution": 2048,
+			"heightResolution": 1024,
+			"tileSizeMeters": 20.002,
+			"texelsPerMeter": 102,
+			"avgColorLinear": [
+				0.301,
+				0.2724,
+				0.2368
+			],
+			"avgColorSRGB": "#958e86",
+			"avgRoughness": 0.881,
+			"roughnessRange": [
+				0.769,
+				1
+			],
+			"avgAO": 0.973,
+			"avgMetalness": 0.003,
+			"heightMean": 0.825,
+			"heightRange": [
+				0.588,
+				0.945
+			],
+			"heightScaleMeters": 1.2149,
+			"heightFit": {
+				"scaleU": 1.2293,
+				"scaleV": 1.1979,
+				"corrU": 0.914,
+				"corrV": 0.918
+			},
+			"normalMeanSlope": 0.2161,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1.15,
+						"u": 0.94
+					},
+					"normal": {
+						"v": 1.43,
+						"u": 1.48
+					},
+					"height": {
+						"v": 0.95,
+						"u": 0.96
+					}
+				},
+				"bakedLightCorrelation": 0.219,
+				"bakedLightXY": [
+					-0.203,
+					0.081
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/rock_cliff/albedo.jpg",
+				"normal": "/assets/textures/rock_cliff/normal.jpg",
+				"arm": "/assets/textures/rock_cliff/arm.jpg",
+				"height": "/assets/textures/rock_cliff/height.jpg"
+			},
+			"bytes": 9604226,
+			"recommended": {
+				"detailRepeatMeters": 6,
+				"note": "Use the true 20 m repeat for albedo/arm (at 8 m the dark notch feature repeats visibly on a planar wall - tested). 2048 px over 20 m is only 102 px/m, i.e. soft closer than ~10 m: add close-range detail by blending a second sample of the same normal map at ~6 m repeat (or the rock_ground / gravel normal) rather than shrinking the base repeat."
+			}
+		},
+		{
+			"id": "rock_ground",
+			"intent": "broken angular grey rock / coarse scree with soil and a few sprouts between the stones (high ground, talus)",
+			"source": "https://polyhaven.com/a/gray_rocks",
+			"polyhavenId": "gray_rocks",
+			"polyhavenName": "Gray Rocks",
+			"author": "Dimitrios Savva",
+			"license": "CC0",
+			"resolution": 2048,
+			"heightResolution": 1024,
+			"tileSizeMeters": 1.8,
+			"texelsPerMeter": 1138,
+			"avgColorLinear": [
+				0.1998,
+				0.1759,
+				0.139
+			],
+			"avgColorSRGB": "#7c7468",
+			"avgRoughness": 0.811,
+			"roughnessRange": [
+				0.651,
+				0.976
+			],
+			"avgAO": 0.787,
+			"avgMetalness": 0.005,
+			"heightMean": 0.397,
+			"heightRange": [
+				0.008,
+				0.792
+			],
+			"heightScaleMeters": 0.0372,
+			"heightFit": {
+				"scaleU": 0.0361,
+				"scaleV": 0.0383,
+				"corrU": 0.532,
+				"corrV": 0.558
+			},
+			"normalMeanSlope": 0.4955,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1.01,
+						"u": 1.02
+					},
+					"normal": {
+						"v": 1.29,
+						"u": 1.28
+					},
+					"height": {
+						"v": 1.35,
+						"u": 1.27
+					}
+				},
+				"bakedLightCorrelation": 0.04,
+				"bakedLightXY": [
+					-0.033,
+					-0.023
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/rock_ground/albedo.jpg",
+				"normal": "/assets/textures/rock_ground/normal.jpg",
+				"arm": "/assets/textures/rock_ground/arm.jpg",
+				"height": "/assets/textures/rock_ground/height.jpg"
+			},
+			"bytes": 13076746,
+			"normalNote": "normal.jpg re-encoded (q97 4:4:4) after clean-up of the Poly Haven nor_gl map: removed constant tilt bias of [1.34, -0.78] deg (x, y)"
+		},
+		{
+			"id": "shore",
+			"intent": "rounded river pebbles in coarse sand for the lake edge",
+			"source": "https://polyhaven.com/a/ganges_river_pebbles",
+			"polyhavenId": "ganges_river_pebbles",
+			"polyhavenName": "Ganges River Pebbles",
+			"author": "Amal Kumar",
+			"license": "CC0",
+			"resolution": 2048,
+			"heightResolution": 1024,
+			"tileSizeMeters": 2.16,
+			"texelsPerMeter": 948,
+			"avgColorLinear": [
+				0.2331,
+				0.196,
+				0.1559
+			],
+			"avgColorSRGB": "#857a6e",
+			"avgRoughness": 0.808,
+			"roughnessRange": [
+				0.604,
+				0.992
+			],
+			"avgAO": 0.749,
+			"avgMetalness": 0.003,
+			"heightMean": 0.483,
+			"heightRange": [
+				0.024,
+				1
+			],
+			"heightScaleMeters": 0.0589,
+			"heightFit": {
+				"scaleU": 0.0585,
+				"scaleV": 0.0593,
+				"corrU": 0.768,
+				"corrV": 0.778
+			},
+			"normalMeanSlope": 0.469,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1,
+						"u": 1.04
+					},
+					"normal": {
+						"v": 1.28,
+						"u": 1.35
+					},
+					"height": {
+						"v": 1.01,
+						"u": 1.06
+					}
+				},
+				"bakedLightCorrelation": 0.055,
+				"bakedLightXY": [
+					-0.036,
+					0.042
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/shore/albedo.jpg",
+				"normal": "/assets/textures/shore/normal.jpg",
+				"arm": "/assets/textures/shore/arm.jpg",
+				"height": "/assets/textures/shore/height.jpg"
+			},
+			"bytes": 11252874,
+			"normalNote": "normal.jpg re-encoded (q97 4:4:4) after clean-up of the Poly Haven nor_gl map: removed constant tilt bias of [-0.52, -0.04] deg (x, y)"
+		},
+		{
+			"id": "snow",
+			"intent": "fresh, slightly wind-packed snow for distant peaks",
+			"source": "https://polyhaven.com/a/snow_02",
+			"polyhavenId": "snow_02",
+			"polyhavenName": "Snow 02",
+			"author": "Rob Tuytel",
+			"license": "CC0",
+			"resolution": 1024,
+			"heightResolution": 1024,
+			"tileSizeMeters": 2,
+			"texelsPerMeter": 512,
+			"avgColorLinear": [
+				0.379,
+				0.3786,
+				0.3886
+			],
+			"avgColorSRGB": "#a6a5a7",
+			"avgRoughness": 0.801,
+			"roughnessRange": [
+				0.745,
+				1
+			],
+			"avgAO": 0.55,
+			"avgMetalness": 0.003,
+			"heightMean": 0.559,
+			"heightRange": [
+				0.012,
+				0.984
+			],
+			"heightScaleMeters": 0.0621,
+			"heightFit": {
+				"scaleU": 0.0669,
+				"scaleV": 0.0577,
+				"corrU": 0.877,
+				"corrV": 0.879
+			},
+			"normalMeanSlope": 0.19,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1.08,
+						"u": 1.26
+					},
+					"normal": {
+						"v": 1.39,
+						"u": 1.1
+					},
+					"height": {
+						"v": 2.31,
+						"u": 1.83
+					}
+				},
+				"bakedLightCorrelation": 0.118,
+				"bakedLightXY": [
+					0.076,
+					-0.091
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/snow/albedo.jpg",
+				"normal": "/assets/textures/snow/normal.jpg",
+				"arm": "/assets/textures/snow/arm.jpg",
+				"height": "/assets/textures/snow/height.jpg"
+			},
+			"bytes": 1925002,
+			"recommended": {
+				"albedoTint": [
+					2.2,
+					2.2,
+					2.25
+				],
+				"note": "Poly Haven snow albedo is stored far too dark (linear 0.38). Multiply by ~2.2 to reach a physical snow albedo of ~0.85.",
+				"aoIntensity": 0.55,
+				"aoNote": "AO map is very dark (mean 0.55); use aoMapIntensity ~0.55 (ao = mix(1, aoSample, 0.55)) so ambient light matches the other layers (their mean AO is 0.75-0.97)."
+			},
+			"normalNote": "normal.jpg re-encoded (q97 4:4:4) after clean-up of the Poly Haven nor_gl map: removed constant tilt bias of [8.7, 8.82] deg (x, y)"
+		},
+		{
+			"id": "asphalt_main",
+			"intent": "dark, good-condition asphalt with visible 3-8 mm aggregate, no markings (main road surface)",
+			"source": "https://polyhaven.com/a/asphalt_pit_lane",
+			"polyhavenId": "asphalt_pit_lane",
+			"polyhavenName": "Asphalt Pit Lane",
+			"author": "Dimitrios Savva",
+			"license": "CC0",
+			"resolution": 2048,
+			"heightResolution": 1024,
+			"tileSizeMeters": 2,
+			"texelsPerMeter": 1024,
+			"avgColorLinear": [
+				0.0591,
+				0.0478,
+				0.0384
+			],
+			"avgColorSRGB": "#453e37",
+			"avgRoughness": 0.832,
+			"roughnessRange": [
+				0.714,
+				0.894
+			],
+			"avgAO": 0.903,
+			"avgMetalness": 0.003,
+			"heightMean": 0.44,
+			"heightRange": [
+				0.357,
+				0.506
+			],
+			"heightScaleMeters": 0.0373,
+			"heightFit": {
+				"scaleU": 0.0368,
+				"scaleV": 0.0377,
+				"corrU": 0.951,
+				"corrV": 0.959
+			},
+			"normalMeanSlope": 0.1432,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 0.97,
+						"u": 0.97
+					},
+					"normal": {
+						"v": 1.26,
+						"u": 1.42
+					},
+					"height": {
+						"v": 0.97,
+						"u": 0.92
+					}
+				},
+				"bakedLightCorrelation": 0.042,
+				"bakedLightXY": [
+					-0.038,
+					-0.017
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/asphalt_main/albedo.jpg",
+				"normal": "/assets/textures/asphalt_main/normal.jpg",
+				"arm": "/assets/textures/asphalt_main/arm.jpg",
+				"height": "/assets/textures/asphalt_main/height.jpg"
+			},
+			"bytes": 11630219,
+			"recommended": {
+				"albedoTint": [
+					0.9,
+					1,
+					1.14
+				],
+				"note": "Raw scan has a slight brown cast (#453e37). albedoTint neutralises it to a dark neutral grey that matches the granite palette; use 1,1,1 to keep the warm tone."
+			},
+			"normalNote": "normal.jpg re-encoded (q97 4:4:4) after clean-up of the Poly Haven nor_gl map: removed constant tilt bias of [-0.07, 0.18] deg (x, y), removed linear tilt ramps across the tile of [-3.31, -0.2] / [0.12, 2.24] deg (pillowing), wrap-around high-pass (box radius 6.3% of the tile) to remove tile-scale undulation"
+		},
+		{
+			"id": "asphalt_worn",
+			"intent": "older sun-bleached asphalt with exposed aggregate and cracks (patches, lay-bys, old sections)",
+			"source": "https://polyhaven.com/a/asphalt_02",
+			"polyhavenId": "asphalt_02",
+			"polyhavenName": "Asphalt 02",
+			"author": "Rob Tuytel",
+			"license": "CC0",
+			"resolution": 2048,
+			"heightResolution": 1024,
+			"tileSizeMeters": 3,
+			"texelsPerMeter": 683,
+			"avgColorLinear": [
+				0.1162,
+				0.1143,
+				0.102
+			],
+			"avgColorSRGB": "#605f5a",
+			"avgRoughness": 0.77,
+			"roughnessRange": [
+				0.267,
+				1
+			],
+			"avgAO": 0.721,
+			"avgMetalness": 0.015,
+			"heightMean": 0.627,
+			"heightRange": [
+				0.039,
+				0.937
+			],
+			"heightScaleMeters": 0.0152,
+			"heightFit": {
+				"scaleU": 0.0149,
+				"scaleV": 0.0154,
+				"corrU": 0.945,
+				"corrV": 0.949
+			},
+			"normalMeanSlope": 0.2297,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1.06,
+						"u": 0.97
+					},
+					"normal": {
+						"v": 1.01,
+						"u": 0.96
+					},
+					"height": {
+						"v": 1.16,
+						"u": 1.04
+					}
+				},
+				"bakedLightCorrelation": 0.352,
+				"bakedLightXY": [
+					-0.13,
+					-0.327
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/asphalt_worn/albedo.jpg",
+				"normal": "/assets/textures/asphalt_worn/normal.jpg",
+				"arm": "/assets/textures/asphalt_worn/arm.jpg",
+				"height": "/assets/textures/asphalt_worn/height.jpg"
+			},
+			"bytes": 9673755
+		},
+		{
+			"id": "concrete",
+			"intent": "cast concrete with bug holes, form-tie plugs and pour lines (barriers, kerbs, bridge)",
+			"source": "https://polyhaven.com/a/concrete_wall_009",
+			"polyhavenId": "concrete_wall_009",
+			"polyhavenName": "Concrete Wall 009",
+			"author": "Charlotte Baglioni",
+			"license": "CC0",
+			"resolution": 1024,
+			"heightResolution": 1024,
+			"tileSizeMeters": 1.805,
+			"texelsPerMeter": 567,
+			"avgColorLinear": [
+				0.3561,
+				0.3187,
+				0.2621
+			],
+			"avgColorSRGB": "#a1998c",
+			"avgRoughness": 0.798,
+			"roughnessRange": [
+				0.047,
+				1
+			],
+			"avgAO": 0.987,
+			"avgMetalness": 0.007,
+			"heightMean": 0.792,
+			"heightRange": [
+				0.059,
+				0.933
+			],
+			"heightScaleMeters": 0.0055,
+			"heightFit": {
+				"scaleU": 0.0055,
+				"scaleV": 0.0055,
+				"corrU": 0.709,
+				"corrV": 0.693
+			},
+			"normalMeanSlope": 0.0205,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 3.23,
+						"u": 4.29
+					},
+					"normal": {
+						"v": 3.87,
+						"u": 8.48
+					},
+					"height": {
+						"v": 5.71,
+						"u": 13.12
+					}
+				},
+				"bakedLightCorrelation": 0.055,
+				"bakedLightXY": [
+					0.055,
+					-0.002
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/concrete/albedo.jpg",
+				"normal": "/assets/textures/concrete/normal.jpg",
+				"arm": "/assets/textures/concrete/arm.jpg",
+				"height": "/assets/textures/concrete/height.jpg"
+			},
+			"bytes": 2279719
+		},
+		{
+			"id": "metal_galvanized",
+			"intent": "flat hot-dip galvanized steel with zinc spangle and a few rust runs (guard rails, sign posts)",
+			"source": "https://polyhaven.com/a/corrugated_iron",
+			"polyhavenId": "corrugated_iron",
+			"polyhavenName": "Corrugated Iron",
+			"author": "Jenelle van Heerden, Dimitrios Savva",
+			"license": "CC0",
+			"resolution": 1024,
+			"heightResolution": 1024,
+			"tileSizeMeters": 1.12,
+			"texelsPerMeter": 914,
+			"avgColorLinear": [
+				0.4019,
+				0.4509,
+				0.4279
+			],
+			"avgColorSRGB": "#aab3af",
+			"avgRoughness": 0.703,
+			"roughnessRange": [
+				0.631,
+				0.796
+			],
+			"avgAO": 0.996,
+			"avgMetalness": 0.999,
+			"heightMean": 0.499,
+			"heightRange": [
+				0.306,
+				0.725
+			],
+			"heightScaleMeters": 0.0014,
+			"heightFit": {
+				"scaleU": 0.0014,
+				"scaleV": 0.0014,
+				"corrU": 0.985,
+				"corrV": 0.992
+			},
+			"normalMeanSlope": 0.0307,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1.1,
+						"u": 1
+					},
+					"normal": {
+						"v": 1.62,
+						"u": 1.55
+					},
+					"height": {
+						"v": 1.08,
+						"u": 0.98
+					}
+				},
+				"bakedLightCorrelation": 0.007,
+				"bakedLightXY": [
+					-0.004,
+					0.006
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/metal_galvanized/albedo.jpg",
+				"normal": "/assets/textures/metal_galvanized/normal.jpg",
+				"arm": "/assets/textures/metal_galvanized/arm.jpg",
+				"height": "/assets/textures/metal_galvanized/height.jpg"
+			},
+			"bytes": 1279400,
+			"derived": "Derived from the Poly Haven \"corrugated_iron\" scan (galvanized corrugated sheet) to get a FLAT galvanized sheet: the vertically low-passed corrugation banding was divided out of albedo, AO and roughness; metalness is a constant 1 (the scan's rust runs are dropped); normal + height are a very subtle emboss of the zinc spangle derived from the flattened albedo (mean slope 0.03), because the scanned normal/displacement only contain the corrugation. Re-encoded JPEG q95 4:4:4."
+		},
+		{
+			"id": "wood_weathered",
+			"intent": "grey weathered, cracked bare timber without plank gaps; grain runs along V (posts, beams, pier planks)",
+			"source": "https://polyhaven.com/a/rough_wood",
+			"polyhavenId": "rough_wood",
+			"polyhavenName": "Rough Wood",
+			"author": "Rob Tuytel",
+			"license": "CC0",
+			"resolution": 1024,
+			"heightResolution": 1024,
+			"tileSizeMeters": 0.5,
+			"texelsPerMeter": 2048,
+			"avgColorLinear": [
+				0.1529,
+				0.1284,
+				0.1009
+			],
+			"avgColorSRGB": "#6d6459",
+			"avgRoughness": 0.51,
+			"roughnessRange": [
+				0.424,
+				0.792
+			],
+			"avgAO": 0.781,
+			"avgMetalness": 0.005,
+			"heightMean": 0.809,
+			"heightRange": [
+				0,
+				1
+			],
+			"heightScaleMeters": 0.0095,
+			"heightFit": {
+				"scaleU": 0.0096,
+				"scaleV": 0.0089,
+				"corrU": 0.941,
+				"corrV": 0.885
+			},
+			"normalMeanSlope": 0.1398,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1.25,
+						"u": 0.87
+					},
+					"normal": {
+						"v": 1.03,
+						"u": 0.83
+					},
+					"height": {
+						"v": 1.45,
+						"u": 0.9
+					}
+				},
+				"bakedLightCorrelation": 0.176,
+				"bakedLightXY": [
+					0.102,
+					0.144
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/wood_weathered/albedo.jpg",
+				"normal": "/assets/textures/wood_weathered/normal.jpg",
+				"arm": "/assets/textures/wood_weathered/arm.jpg",
+				"height": "/assets/textures/wood_weathered/height.jpg"
+			},
+			"bytes": 1838704,
+			"recommended": {
+				"roughnessBias": 0.3,
+				"roughnessNote": "Stored roughness (mean 0.51) is too glossy for dry, grey weathered timber; use roughness = saturate( sample + 0.3 )."
+			},
+			"normalNote": "normal.jpg re-encoded (q97 4:4:4) after clean-up of the Poly Haven nor_gl map: removed constant tilt bias of [-1.45, -1.49] deg (x, y)"
+		},
+		{
+			"id": "rock_detail",
+			"intent": "EXTRA set: close-range rock micro-surface (1.8 m scan of a pale grey-beige weathered boulder face, 569 px/m) to blend over rock_cliff near the road, where the 20 m cliff scan (102 px/m) gets soft",
+			"source": "https://polyhaven.com/a/rock_boulder_dry",
+			"polyhavenId": "rock_boulder_dry",
+			"polyhavenName": "Rock Boulder Dry",
+			"author": "Dimitrios Savva, Rico Cilliers",
+			"license": "CC0",
+			"resolution": 1024,
+			"heightResolution": 1024,
+			"tileSizeMeters": 1.8,
+			"texelsPerMeter": 569,
+			"avgColorLinear": [
+				0.4,
+				0.3389,
+				0.2722
+			],
+			"avgColorSRGB": "#aa9d8e",
+			"avgRoughness": 0.633,
+			"roughnessRange": [
+				0.431,
+				0.906
+			],
+			"avgAO": 0.929,
+			"avgMetalness": 0.004,
+			"heightMean": 0.517,
+			"heightRange": [
+				0.047,
+				0.988
+			],
+			"heightScaleMeters": 0.0371,
+			"heightFit": {
+				"scaleU": 0.036,
+				"scaleV": 0.0382,
+				"corrU": 0.921,
+				"corrV": 0.942
+			},
+			"normalMeanSlope": 0.1118,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 0.96,
+						"u": 0.76
+					},
+					"normal": {
+						"v": 0.94,
+						"u": 0.97
+					},
+					"height": {
+						"v": 0.88,
+						"u": 1.29
+					}
+				},
+				"bakedLightCorrelation": 0.129,
+				"bakedLightXY": [
+					0.005,
+					-0.128
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/rock_detail/albedo.jpg",
+				"normal": "/assets/textures/rock_detail/normal.jpg",
+				"arm": "/assets/textures/rock_detail/arm.jpg",
+				"height": "/assets/textures/rock_detail/height.jpg"
+			},
+			"bytes": 2584267,
+			"extra": true,
+			"recommended": {
+				"note": "Detail layer only: blend its normal (and at most a faint albedo modulation) over rock_cliff within ~15 m of the camera. Do NOT use it alone on large surfaces - its dark lichen blotches repeat visibly every 1.8 m (tested on an 8x6 m wall). Its roughness (0.63) is lower than rock_cliff (0.88): keep the roughness of rock_cliff."
+			},
+			"heightNote": "height.jpg re-encoded (source displacement JPG was 3-channel grey) to single-channel greyscale, q95"
+		},
+		{
+			"id": "wood_planks",
+			"intent": "EXTRA set: grey weathered boards with dark gaps, boards run along V (pier deck, fences) - complements wood_weathered",
+			"source": "https://polyhaven.com/a/brown_planks_03",
+			"polyhavenId": "brown_planks_03",
+			"polyhavenName": "Brown Planks 03",
+			"author": "Rob Tuytel",
+			"license": "CC0",
+			"resolution": 1024,
+			"heightResolution": 1024,
+			"tileSizeMeters": 1,
+			"texelsPerMeter": 1024,
+			"avgColorLinear": [
+				0.1609,
+				0.1387,
+				0.1113
+			],
+			"avgColorSRGB": "#70685e",
+			"avgRoughness": 0.517,
+			"roughnessRange": [
+				0.408,
+				0.82
+			],
+			"avgAO": 0.843,
+			"avgMetalness": 0.004,
+			"heightMean": 0.905,
+			"heightRange": [
+				0.043,
+				1
+			],
+			"heightScaleMeters": 0.0075,
+			"heightFit": {
+				"scaleU": 0.0076,
+				"scaleV": 0.0057,
+				"corrU": 0.759,
+				"corrV": 0.67
+			},
+			"normalMeanSlope": 0.0782,
+			"checks": {
+				"seamRatio": {
+					"albedo": {
+						"v": 1.14,
+						"u": 3.3
+					},
+					"normal": {
+						"v": 1.21,
+						"u": 2.75
+					},
+					"height": {
+						"v": 1.32,
+						"u": 1.15
+					}
+				},
+				"bakedLightCorrelation": 0.205,
+				"bakedLightXY": [
+					-0.191,
+					-0.076
+				]
+			},
+			"maps": {
+				"albedo": "/assets/textures/wood_planks/albedo.jpg",
+				"normal": "/assets/textures/wood_planks/normal.jpg",
+				"arm": "/assets/textures/wood_planks/arm.jpg",
+				"height": "/assets/textures/wood_planks/height.jpg"
+			},
+			"bytes": 1470124,
+			"recommended": {
+				"roughnessBias": 0.3,
+				"roughnessNote": "Stored roughness (mean 0.517) is too glossy for dry, grey weathered timber; use roughness = saturate( sample + 0.3 )."
+			},
+			"extra": true,
+			"normalNote": "normal.jpg re-encoded (q97 4:4:4) after clean-up of the Poly Haven nor_gl map: removed constant tilt bias of [-0.06, -0.77] deg (x, y)"
+		}
+	],
+	"fx": [
+		{
+			"id": "water_normals",
+			"file": "/assets/textures/fx/water_normals.jpg",
+			"bytes": 248813,
+			"type": "texture",
+			"width": 1024,
+			"height": 1024,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "data",
+			"purpose": "Water-surface normal map (the classic three.js ocean/Water normals, choppy). Scroll two copies at different scale/speed/direction and blend. NOTE: has a faint 1-px discontinuity at the wrap edge (seam ratio 3.8/2.6, visible in a still close-up) - prefer water_normals_a + water_normals_b (seamless) for the calm lake.",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples (webgpu_ocean / Water.js)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/waternormals.jpg"
+		},
+		{
+			"id": "water_normals_a",
+			"file": "/assets/textures/fx/water_normals_a.jpg",
+			"bytes": 406361,
+			"type": "texture",
+			"width": 512,
+			"height": 512,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "data",
+			"purpose": "Seamlessly tiling water normal map, larger soft ripples (three.js Water2 normalMap0). Pair with water_normals_b for lake ripples.",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples (webgpu_water / Water2)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/water/Water_1_M_Normal.jpg"
+		},
+		{
+			"id": "water_normals_b",
+			"file": "/assets/textures/fx/water_normals_b.jpg",
+			"bytes": 437899,
+			"type": "texture",
+			"width": 512,
+			"height": 512,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "data",
+			"purpose": "Seamlessly tiling water normal map, finer ripples (three.js Water2 normalMap1).",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples (webgpu_water / Water2)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/water/Water_2_M_Normal.jpg"
+		},
+		{
+			"id": "caustics",
+			"file": "/assets/textures/fx/caustics.jpg",
+			"bytes": 79046,
+			"type": "texture",
+			"width": 512,
+			"height": 512,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "srgb",
+			"purpose": "Tiling greyscale caustics pattern for the shallow lake edge (project onto the lake bed, scroll two copies).",
+			"license": "Free asset from opengameart.org redistributed in the three.js repository; exact licence not stated in the repo - verify before a commercial release",
+			"credit": "opengameart.org via three.js examples (webgpu_caustics)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/opengameart/Caustic_Free.jpg"
+		},
+		{
+			"id": "smoke",
+			"file": "/assets/textures/fx/smoke.png",
+			"bytes": 91231,
+			"type": "texture",
+			"width": 512,
+			"height": 512,
+			"channels": 4,
+			"hasAlpha": true,
+			"colorSpace": "srgb",
+			"purpose": "Soft smoke / dust puff sprite with alpha (tyre smoke, gravel dust, exhaust). Use as a camera-facing, soft-particle, alpha-blended sprite; tint via vertex/instance colour.",
+			"license": "Free asset from opengameart.org redistributed in the three.js repository; exact licence not stated in the repo - verify before a commercial release",
+			"credit": "opengameart.org via three.js examples (webgpu_particles)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/opengameart/smoke1.png"
+		},
+		{
+			"id": "spark",
+			"file": "/assets/textures/fx/spark.png",
+			"bytes": 1608,
+			"type": "texture",
+			"width": 32,
+			"height": 32,
+			"channels": 4,
+			"hasAlpha": true,
+			"colorSpace": "srgb",
+			"purpose": "Spark / glint sprite (additive blending): scrape sparks, tiny headlight glints.",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples (sprites)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/sprites/spark1.png"
+		},
+		{
+			"id": "particle_disc",
+			"file": "/assets/textures/fx/particle_disc.png",
+			"bytes": 866,
+			"type": "texture",
+			"width": 32,
+			"height": 32,
+			"channels": 2,
+			"hasAlpha": true,
+			"colorSpace": "srgb",
+			"purpose": "Small hard-edged round particle with alpha (pollen, debris, rain splash points).",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples (sprites)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/sprites/disc.png"
+		},
+		{
+			"id": "particle_circle",
+			"file": "/assets/textures/fx/particle_circle.png",
+			"bytes": 4158,
+			"type": "texture",
+			"width": 64,
+			"height": 64,
+			"channels": 4,
+			"hasAlpha": true,
+			"colorSpace": "srgb",
+			"purpose": "Round particle sprite with alpha.",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples (sprites)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/sprites/circle.png"
+		},
+		{
+			"id": "lensflare0",
+			"file": "/assets/textures/fx/lensflare/lensflare0.png",
+			"bytes": 65361,
+			"type": "texture",
+			"width": 512,
+			"height": 512,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "srgb",
+			"purpose": "Main sun flare / glow sprite (additive).",
+			"license": "CC BY-NC-SA 3.0 (ROME \"3 Dreams of Black\" assets, see fx/lensflare/LICENSE.txt) - NON-COMMERCIAL + share-alike + attribution",
+			"credit": "ROME \"3 Dreams of Black\" (https://rome.mrdoob.com) via three.js examples",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/lensflare/lensflare0.png"
+		},
+		{
+			"id": "lensflare0_alpha",
+			"file": "/assets/textures/fx/lensflare/lensflare0_alpha.png",
+			"bytes": 93442,
+			"type": "texture",
+			"width": 512,
+			"height": 512,
+			"channels": 4,
+			"hasAlpha": true,
+			"colorSpace": "srgb",
+			"purpose": "Same sun flare with alpha channel (for normal alpha blending).",
+			"license": "CC BY-NC-SA 3.0 (ROME assets, see fx/lensflare/LICENSE.txt) - NON-COMMERCIAL",
+			"credit": "ROME \"3 Dreams of Black\" via three.js examples",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/lensflare/lensflare0_alpha.png"
+		},
+		{
+			"id": "lensflare1",
+			"file": "/assets/textures/fx/lensflare/lensflare1.png",
+			"bytes": 760,
+			"type": "texture",
+			"width": 512,
+			"height": 512,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "srgb",
+			"purpose": "Small soft ghost element.",
+			"license": "CC BY-NC-SA 3.0 (ROME assets, see fx/lensflare/LICENSE.txt) - NON-COMMERCIAL",
+			"credit": "ROME \"3 Dreams of Black\" via three.js examples",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/lensflare/lensflare1.png"
+		},
+		{
+			"id": "lensflare2",
+			"file": "/assets/textures/fx/lensflare/lensflare2.png",
+			"bytes": 777,
+			"type": "texture",
+			"width": 512,
+			"height": 512,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "srgb",
+			"purpose": "Small ring ghost element.",
+			"license": "CC BY-NC-SA 3.0 (ROME assets, see fx/lensflare/LICENSE.txt) - NON-COMMERCIAL",
+			"credit": "ROME \"3 Dreams of Black\" via three.js examples",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/lensflare/lensflare2.png"
+		},
+		{
+			"id": "lensflare3",
+			"file": "/assets/textures/fx/lensflare/lensflare3.png",
+			"bytes": 3112,
+			"type": "texture",
+			"width": 128,
+			"height": 128,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "srgb",
+			"purpose": "Hexagonal aperture ghost element (the one used by the three.js lens-flare examples).",
+			"license": "CC BY-NC-SA 3.0 (ROME assets, see fx/lensflare/LICENSE.txt) - NON-COMMERCIAL",
+			"credit": "ROME \"3 Dreams of Black\" via three.js examples",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/lensflare/lensflare3.png"
+		},
+		{
+			"id": "lens_dirt",
+			"file": "/assets/textures/fx/lens_dirt.png",
+			"bytes": 501059,
+			"type": "texture",
+			"width": 2048,
+			"height": 1152,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "srgb",
+			"purpose": "Lens dirt overlay; multiply with the bloom/flare buffer (three/addons/tsl/display lensDirt / LensflareNode) for sun-facing shots.",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples (webgpu_postprocessing_lensflare)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/lensdirt.png"
+		},
+		{
+			"id": "noise_perlin_rgb",
+			"file": "/assets/textures/fx/noise_perlin_rgb_256.png",
+			"bytes": 45141,
+			"type": "texture",
+			"width": 256,
+			"height": 256,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "data",
+			"purpose": "Tiling RGB perlin noise 256x256 (three independent channels): wind, heat haze, dust erosion, terrain blend breakup.",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples; generated with Perlin Noise Maker (kitfox.com)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/noises/perlin/rgb-256x256.png"
+		},
+		{
+			"id": "noise_perlin",
+			"file": "/assets/textures/fx/noise_perlin_128.png",
+			"bytes": 5193,
+			"type": "texture",
+			"width": 128,
+			"height": 128,
+			"channels": 1,
+			"hasAlpha": false,
+			"colorSpace": "data",
+			"purpose": "Tiling greyscale perlin noise 128x128 (cheap dithering / film-grain / flicker source).",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples; generated with Perlin Noise Maker (kitfox.com)",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/noises/perlin/128x128.png"
+		},
+		{
+			"id": "noise_voronoi",
+			"file": "/assets/textures/fx/noise_voronoi_256.png",
+			"bytes": 53534,
+			"type": "texture",
+			"width": 256,
+			"height": 256,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "data",
+			"purpose": "Tiling greyscale voronoi/cellular noise 256x256 (caustic-like breakup, cracked-surface masks).",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/noises/voronoi/grayscale-256x256.png"
+		},
+		{
+			"id": "noise_white",
+			"file": "/assets/textures/fx/noise_white.png",
+			"bytes": 197320,
+			"type": "texture",
+			"width": 256,
+			"height": 256,
+			"channels": 3,
+			"hasAlpha": false,
+			"colorSpace": "data",
+			"purpose": "High-frequency RGB noise tile (dither / grain / stochastic sampling offsets).",
+			"license": "MIT (three.js repository, no separate licence file next to the asset)",
+			"credit": "three.js examples",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/textures/noise.png"
+		},
+		{
+			"id": "lut_cinematic_neutral",
+			"file": "/assets/textures/fx/luts/presetpro_cinematic.3dl",
+			"bytes": 450415,
+			"type": "lut3d",
+			"format": "3dl",
+			"loader": "LUT3dlLoader",
+			"lutSize": 32,
+			"title": null,
+			"purpose": "Neutral filmic grade (default for all presets): greys stay neutral (50% grey -> #7c7f7e), blacks lifted to ~#1a181b, slightly deeper greens and sky blues. Safe at intensity 1.",
+			"license": "Free LUT \"Presetpro - Cinematic\" (C) 2018 presetpro.com / Tim Martin, from FreePresets.com free cinematic LUTs, redistributed in the three.js repository (examples/luts); original free-asset terms apply - verify before a commercial release",
+			"credit": "presetpro.com / FreePresets.com via three.js examples/luts",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/luts/Presetpro-Cinematic.3dl"
+		},
+		{
+			"id": "lut_warm_bourbon",
+			"file": "/assets/textures/fx/luts/bourbon_64_warm.cube",
+			"bytes": 884952,
+			"type": "lut3d",
+			"format": "cube",
+			"loader": "LUTCubeLoader",
+			"lutSize": 32,
+			"title": "Warm",
+			"purpose": "Strong warm golden grade (RocketStock \"Bourbon 64\", TITLE \"Warm\"): mid greys go warm and brighter (50% grey -> #9f8e84), highlights cream (#fefbef), shadows plum (#1d1222). Golden-hour preset at intensity ~0.35-0.6; too strong at 1.",
+			"license": "Free LUT from the RocketStock \"35 Free LUTs for Color Grading Videos\" pack ((C) 2017 RocketStock), redistributed in the three.js repository (examples/luts); original RocketStock free-asset terms apply - verify before a commercial release",
+			"credit": "RocketStock via three.js examples/luts",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/luts/Bourbon%2064.CUBE"
+		},
+		{
+			"id": "lut_alpenglow_remy",
+			"file": "/assets/textures/fx/luts/remy_24.cube",
+			"bytes": 884956,
+			"type": "lut3d",
+			"format": "cube",
+			"loader": "LUTCubeLoader",
+			"lutSize": 32,
+			"title": "Untitled",
+			"purpose": "Split-tone grade (RocketStock \"Remy 24\"): warm pink-cream highlights (75% grey -> #dcd2ba), cool lavender shadows (25% grey -> #4a4857). Dusk / alpenglow preset at intensity ~0.4-0.8.",
+			"license": "Free LUT from the RocketStock \"35 Free LUTs for Color Grading Videos\" pack ((C) 2017 RocketStock), redistributed in the three.js repository (examples/luts); original RocketStock free-asset terms apply - verify before a commercial release",
+			"credit": "RocketStock via three.js examples/luts",
+			"source": "https://github.com/mrdoob/three.js/blob/r187/examples/luts/Remy%2024.CUBE"
+		},
+		{
+			"id": "flare_glow",
+			"file": "/assets/textures/fx/flare_glow.png",
+			"bytes": 9202,
+			"type": "texture",
+			"width": 256,
+			"height": 256,
+			"channels": 4,
+			"hasAlpha": true,
+			"colorSpace": "srgb",
+			"purpose": "Procedural soft sun glow (white, alpha = intensity, smooth falloff). Additive; tint with the sun colour.",
+			"license": "CC0 / project-owned (generated procedurally by tools/assets/tex-fx.mjs, no third-party content)",
+			"credit": "generated",
+			"source": "tools/assets/tex-fx.mjs"
+		},
+		{
+			"id": "flare_ring",
+			"file": "/assets/textures/fx/flare_ring.png",
+			"bytes": 25267,
+			"type": "texture",
+			"width": 256,
+			"height": 256,
+			"channels": 4,
+			"hasAlpha": true,
+			"colorSpace": "srgb",
+			"purpose": "Procedural thin halo ring ghost (white, alpha = intensity). Additive, low opacity (0.05-0.15).",
+			"license": "CC0 / project-owned (generated procedurally by tools/assets/tex-fx.mjs, no third-party content)",
+			"credit": "generated",
+			"source": "tools/assets/tex-fx.mjs"
+		},
+		{
+			"id": "flare_hex",
+			"file": "/assets/textures/fx/flare_hex.png",
+			"bytes": 13316,
+			"type": "texture",
+			"width": 256,
+			"height": 256,
+			"channels": 4,
+			"hasAlpha": true,
+			"colorSpace": "srgb",
+			"purpose": "Procedural hexagonal aperture ghost (white, alpha = intensity, slightly brighter rim). Additive, low opacity, several sizes/tints along the sun-to-screen-centre axis.",
+			"license": "CC0 / project-owned (generated procedurally by tools/assets/tex-fx.mjs, no third-party content)",
+			"credit": "generated",
+			"source": "tools/assets/tex-fx.mjs"
+		},
+		{
+			"id": "flare_streak",
+			"file": "/assets/textures/fx/flare_streak.png",
+			"bytes": 1283,
+			"type": "texture",
+			"width": 256,
+			"height": 256,
+			"channels": 4,
+			"hasAlpha": true,
+			"colorSpace": "srgb",
+			"purpose": "Procedural horizontal anamorphic streak (white, alpha = intensity). Additive, stretch along X.",
+			"license": "CC0 / project-owned (generated procedurally by tools/assets/tex-fx.mjs, no third-party content)",
+			"credit": "generated",
+			"source": "tools/assets/tex-fx.mjs"
+		}
+	]
+}

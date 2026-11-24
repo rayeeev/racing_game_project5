@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>system harness</title>
+<link rel="icon" href="data:,">
+</head>
+<body>
+<!-- Generic system harness. Everything is controlled by URL parameters - see the header of /dev/harness.js.
+     Example: /dev/sys.html?systems=environment,terrain,road&s=350&h=2.5&ls=420&sky=golden -->
+<script type="module">
+import { bootHarness } from '/dev/harness.js';
+await bootHarness();
+</script>
+</body>
+</html>

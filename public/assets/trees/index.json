@@ -1,0 +1,215 @@
+{
+	"category": "trees",
+	"note": "Written from assets-src/trees/_build/fir.json. Only the fir species was finished by the asset pipeline; impostor atlases were never baked (the scatter system renders far trees as billboards it bakes at load).",
+	"assets": [
+		{
+			"id": "fir",
+			"file": "/assets/trees/fir.glb",
+			"source": "https://polyhaven.com/a/fir_tree_01",
+			"author": "Poly Haven",
+			"license": "CC0",
+			"textureResolution": 2048,
+			"bytes": 8244756,
+			"variants": [
+				{
+					"name": "fir_tall_a",
+					"class": "tall",
+					"size": [
+						6.583,
+						18.957,
+						6.467
+					],
+					"radius": 3.523,
+					"height": 18.82,
+					"crownRadius": 3.523,
+					"crownBase": 5.689,
+					"trunkRadius": 0.127,
+					"sink": 0.137,
+					"lods": [
+						{
+							"node": "fir_tall_a_LOD0",
+							"triangles": 43755
+						},
+						{
+							"node": "fir_tall_a_LOD1",
+							"triangles": 8956
+						},
+						{
+							"node": "fir_tall_a_LOD2",
+							"triangles": 1500
+						}
+					],
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.127,
+						"height": 4
+					}
+				},
+				{
+					"name": "fir_tall_b",
+					"class": "tall",
+					"size": [
+						5.632,
+						14.074,
+						6.084
+					],
+					"radius": 3.236,
+					"height": 13.935,
+					"crownRadius": 3.236,
+					"crownBase": 3.867,
+					"trunkRadius": 0.118,
+					"sink": 0.142,
+					"lods": [
+						{
+							"node": "fir_tall_b_LOD0",
+							"triangles": 42961
+						},
+						{
+							"node": "fir_tall_b_LOD1",
+							"triangles": 7623
+						},
+						{
+							"node": "fir_tall_b_LOD2",
+							"triangles": 1499
+						}
+					],
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.12,
+						"height": 4
+					}
+				},
+				{
+					"name": "fir_tall_c",
+					"class": "tall",
+					"size": [
+						6.349,
+						14.546,
+						6.005
+					],
+					"radius": 3.561,
+					"height": 14.371,
+					"crownRadius": 3.561,
+					"crownBase": 6.818,
+					"trunkRadius": 0.117,
+					"sink": 0.175,
+					"lods": [
+						{
+							"node": "fir_tall_c_LOD0",
+							"triangles": 16760
+						},
+						{
+							"node": "fir_tall_c_LOD1",
+							"triangles": 3864
+						},
+						{
+							"node": "fir_tall_c_LOD2",
+							"triangles": 1500
+						}
+					],
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.12,
+						"height": 4
+					}
+				},
+				{
+					"name": "fir_young_a",
+					"class": "young",
+					"size": [
+						5.063,
+						9.119,
+						5.322
+					],
+					"radius": 2.977,
+					"height": 8.773,
+					"crownRadius": 2.977,
+					"crownBase": 0.483,
+					"trunkRadius": 0.035,
+					"sink": 0.346,
+					"lods": [
+						{
+							"node": "fir_young_a_LOD0",
+							"triangles": 10793
+						},
+						{
+							"node": "fir_young_a_LOD1",
+							"triangles": 2310
+						},
+						{
+							"node": "fir_young_a_LOD2",
+							"triangles": 400
+						}
+					],
+					"collider": {
+						"type": "none"
+					}
+				},
+				{
+					"name": "fir_young_b",
+					"class": "young",
+					"size": [
+						4.946,
+						8.156,
+						5.435
+					],
+					"radius": 2.874,
+					"height": 7.81,
+					"crownRadius": 2.874,
+					"crownBase": 0.334,
+					"trunkRadius": 0.034,
+					"sink": 0.346,
+					"lods": [
+						{
+							"node": "fir_young_b_LOD0",
+							"triangles": 8872
+						},
+						{
+							"node": "fir_young_b_LOD1",
+							"triangles": 1486
+						},
+						{
+							"node": "fir_young_b_LOD2",
+							"triangles": 400
+						}
+					],
+					"collider": {
+						"type": "none"
+					}
+				},
+				{
+					"name": "fir_young_c",
+					"class": "young",
+					"size": [
+						4.318,
+						6.133,
+						4.047
+					],
+					"radius": 2.448,
+					"height": 5.787,
+					"crownRadius": 2.448,
+					"crownBase": 0.074,
+					"trunkRadius": 0.033,
+					"sink": 0.346,
+					"lods": [
+						{
+							"node": "fir_young_c_LOD0",
+							"triangles": 7888
+						},
+						{
+							"node": "fir_young_c_LOD1",
+							"triangles": 1438
+						},
+						{
+							"node": "fir_young_c_LOD2",
+							"triangles": 400
+						}
+					],
+					"collider": {
+						"type": "none"
+					}
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>texture set preview</title>
+<link rel="icon" href="data:,">
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Helvetica,Arial,sans-serif}
+.label{position:absolute;color:#fff;font-size:14px;font-weight:600;text-shadow:0 0 4px #000,0 0 4px #000,0 0 2px #000;white-space:nowrap;transform:translate(-50%,-50%);pointer-events:none}
+.label small{font-weight:400;font-size:11px;opacity:.9}
+#hud{position:absolute;left:8px;top:6px;color:#fff;font-size:11px;text-shadow:0 0 3px #000,0 0 3px #000;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="hud"></div>
+<!--
+PBR texture set preview (three r187 WebGPURenderer). Shows the sets listed in a manifest (public/assets/textures/index.json
+by default) with physically correct tiling (uv repeat = metres / tileSizeMeters), lit by a Poly Haven HDRI whose sun disc is
+extracted into a shadow casting DirectionalLight (energy conserving: the sun energy removed from the environment map is what
+the light emits), auto-exposed for an 18% grey card.
+
+Query params
+  manifest  json with { sets:[{ id, tileSizeMeters, maps:{albedo,normal,arm,height} }] }   (default /assets/textures/index.json)
+  sets      comma separated set ids, in display order (default: all)
+  mode      grid  (default) every set on a tilted plane + sphere
+            road  every set as a strip of a long flat road seen from a low chase camera (grazing angle)
+            wall  every set on a vertical wall + ground plane (triplanar-style use), camera at eye height
+            scene sets[0] = 40x24 m ground, sets[1] = 40 m wide cliff wall behind it (wallH, default 10 m), eye-height camera
+  rec       1 = use set.recommended.tileSizeMeters instead of tileSizeMeters when the manifest provides one (default 0)
+  cols      grid columns (default: auto)          size   plane edge in metres (default 4)      tilt  plane tilt in deg (default 28)
+  az, el, dist   orbit camera azimuth / elevation (deg) and distance multiplier (grid + wall mode);  focus = index of the set to frame
+  fov       camera fov (default 22 grid, 55 road, 45 wall)
+  camH, lookAhead, stripW, len   road mode: camera height (1.25), look-at distance (14), strip width (4.5), road length (500)
+  hdr       equirect .hdr (default: kloofendal_48d_partly_cloudy_puresky 2k)       envRot  rotate sky + sun around Y in degrees
+  sunI, envI   multipliers for the extracted sun / the sky (default 1, 1)             exposure  multiplier on the auto exposure
+  tone      aces | agx | neutral | none (default aces)
+  show      pbr (default) | albedo | normal | arm | ao | rough | metal | height   (unlit, stored values shown 1:1)
+  nscale    normal scale (default 1)     disp  displacement in metres, or "auto" = each set's calibrated heightScaleMeters / heightMean
+            from the manifest (default 0 = off; vertex displacement with height.jpg on a dense grid)
+  tint      1 = apply set.recommended.albedoTint (albedo multiplier), .aoIntensity and .roughnessBias when the manifest provides
+            them (default 1), 0 = raw maps
+  lut       url of a .cube / .3dl 3D LUT (e.g. /assets/textures/fx/luts/presetpro_cinematic.3dl): renders through a
+            RenderPipeline with renderOutput() -> lut3D() (tone mapping + sRGB first, LUT last);  lutI = LUT intensity 0..1 (default 1)
+  aniso     anisotropy (default 16)      labels  0/1 (default 1)      ball  0/1 chrome + grey reference balls (default 0)
+After load: window.__ready === true, window.__info = { isWebGPU, sets:[{id, tile, sizes}], sunDir, sunElevationDeg, exposure, ... }
+-->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { texture as texNode, uv as uvNode, pass, texture3D, uniform, renderOutput } from 'three/tsl';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { lut3D } from 'three/addons/tsl/display/Lut3DNode.js';
+import { LUTCubeLoader } from 'three/addons/loaders/LUTCubeLoader.js';
+import { LUT3dlLoader } from 'three/addons/loaders/LUT3dlLoader.js';
+
+const q = new URLSearchParams( location.search );
+const num = ( k, d ) => ( q.has( k ) && q.get( k ) !== '' ? Number( q.get( k ) ) : d );
+const str = ( k, d ) => ( q.has( k ) ? q.get( k ) : d );
+const DEG = Math.PI / 180;
+
+const mode = str( 'mode', 'grid' );
+const show = str( 'show', 'pbr' );
+const SIZE = num( 'size', 4 );
+const TILT = num( 'tilt', 28 ) * DEG;
+const ANISO = num( 'aniso', 16 );
+const DISP_AUTO = str( 'disp', '' ) === 'auto';
+const DISP = DISP_AUTO ? 0 : num( 'disp', 0 );
+const USE_DISP = DISP_AUTO || DISP > 0;
+const NSCALE = num( 'nscale', 1 );
+const useTint = num( 'tint', 1 ) === 1;
+
+// ---------------------------------------------------------------- renderer
+const renderer = new THREE.WebGPURenderer( { antialias: true } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+const tone = str( 'tone', 'aces' );
+renderer.toneMapping = { aces: THREE.ACESFilmicToneMapping, agx: THREE.AgXToneMapping, neutral: THREE.NeutralToneMapping, none: THREE.NoToneMapping }[ tone ] ?? THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( num( 'fov', mode === 'road' ? 55 : mode === 'wall' ? 45 : mode === 'scene' ? 50 : 22 ), window.innerWidth / window.innerHeight, 0.05, 4000 );
+
+// ---------------------------------------------------------------- environment: split HDRI into sky (IBL) + sun (directional light)
+const hdrUrl = str( 'hdr', '/assets-src/textures/_hdri/kloofendal_48d_partly_cloudy_puresky/kloofendal_48d_partly_cloudy_puresky_2k.hdr' );
+const hdr = await new HDRLoader().setDataType( THREE.FloatType ).loadAsync( hdrUrl );
+const env = analyseAndSplitSun( hdr.image );
+
+function analyseAndSplitSun( { data, width: W, height: H } ) {
+
+	const lumOf = ( i ) => 0.2126 * data[ i ] + 0.7152 * data[ i + 1 ] + 0.0722 * data[ i + 2 ];
+	const dirOf = ( px, py, out ) => {
+
+		const theta = ( ( px + 0.5 ) / W - 0.5 ) * Math.PI * 2;
+		const phi = ( 0.5 - ( py + 0.5 ) / H ) * Math.PI; // row 0 = zenith (texture.flipY = true)
+		const c = Math.cos( phi );
+		return out.set( c * Math.cos( theta ), Math.sin( phi ), c * Math.sin( theta ) );
+
+	};
+
+	// brightest texel = sun centre
+	let maxL = 0, maxI = 0;
+	for ( let i = 0; i < data.length; i += 4 ) {
+
+		const L = lumOf( i );
+		if ( L > maxL ) { maxL = L; maxI = i / 4; }
+
+	}
+
+	const sunPeak = dirOf( maxI % W, Math.floor( maxI / W ), new THREE.Vector3() );
+
+	// sky level = brightest texel further than 6 deg from the sun centre
+	const cone = Math.cos( 6 * DEG );
+	const d = new THREE.Vector3();
+	let skyMax = 0;
+	for ( let y = 0; y < H; y ++ ) for ( let x = 0; x < W; x ++ ) {
+
+		if ( dirOf( x, y, d ).dot( sunPeak ) > cone ) continue;
+		const L = lumOf( ( y * W + x ) * 4 );
+		if ( L > skyMax ) skyMax = L;
+
+	}
+
+	// move everything above the sky level inside the cone into the sun term
+	const sunE = new THREE.Vector3(), sunDir = new THREE.Vector3(), skyE = new THREE.Vector3();
+	const dOmega0 = ( 2 * Math.PI / W ) * ( Math.PI / H );
+	const sky = new Float32Array( data.length );
+	for ( let y = 0; y < H; y ++ ) {
+
+		const dOmega = dOmega0 * Math.cos( ( 0.5 - ( y + 0.5 ) / H ) * Math.PI );
+		for ( let x = 0; x < W; x ++ ) {
+
+			const i = ( y * W + x ) * 4;
+			let r = data[ i ], g = data[ i + 1 ], b = data[ i + 2 ];
+			dirOf( x, y, d );
+			const L = lumOf( i );
+			if ( L > skyMax && d.dot( sunPeak ) > cone ) {
+
+				const k = skyMax / L;
+				sunE.x += r * ( 1 - k ) * dOmega; sunE.y += g * ( 1 - k ) * dOmega; sunE.z += b * ( 1 - k ) * dOmega;
+				sunDir.addScaledVector( d, ( L - skyMax ) * dOmega );
+				r *= k; g *= k; b *= k;
+
+			}
+
+			sky[ i ] = r; sky[ i + 1 ] = g; sky[ i + 2 ] = b; sky[ i + 3 ] = 1;
+			if ( d.y > 0 ) { skyE.x += r * d.y * dOmega; skyE.y += g * d.y * dOmega; skyE.z += b * d.y * dOmega; }
+
+		}
+
+	}
+
+	if ( sunDir.lengthSq() === 0 ) sunDir.copy( sunPeak );
+	sunDir.normalize();
+	const toHalfTex = ( src, limit ) => {
+
+		const half = new Uint16Array( src.length );
+		for ( let i = 0; i < src.length; i ++ ) half[ i ] = THREE.DataUtils.toHalfFloat( Math.min( src[ i ], limit ) );
+		const t = new THREE.DataTexture( half, W, H, THREE.RGBAFormat, THREE.HalfFloatType );
+		t.colorSpace = THREE.LinearSRGBColorSpace;
+		t.minFilter = t.magFilter = THREE.LinearFilter;
+		t.generateMipmaps = false;
+		t.flipY = true;
+		t.mapping = THREE.EquirectangularReflectionMapping;
+		t.needsUpdate = true;
+		return t;
+
+	};
+	return { skyTex: toHalfTex( sky, 65000 ), bgTex: toHalfTex( data, 4000 ), sunDir, sunE, skyE, skyMax, maxL };
+
+}
+
+const lum = ( v ) => 0.2126 * v.x + 0.7152 * v.y + 0.0722 * v.z;
+const envRot = num( 'envRot', 0 ) * DEG;
+scene.environment = env.skyTex;
+scene.background = env.bgTex;
+scene.environmentIntensity = num( 'envI', 1 );
+scene.backgroundIntensity = num( 'envI', 1 );
+scene.environmentRotation.y = envRot;
+scene.backgroundRotation.y = envRot;
+const sunDir = env.sunDir.clone().applyAxisAngle( new THREE.Vector3( 0, 1, 0 ), envRot );
+
+const sunLum = lum( env.sunE ) * num( 'sunI', 1 );
+const skyLum = lum( env.skyE ) * num( 'envI', 1 );
+const horizontalE = skyLum + sunLum * Math.max( sunDir.y, 0 );
+const exposure = ( Math.PI / Math.max( horizontalE, 1e-4 ) ) * num( 'exposure', 1 );
+renderer.toneMappingExposure = exposure;
+
+const sun = new THREE.DirectionalLight( new THREE.Color().setRGB( env.sunE.x / lum( env.sunE ), env.sunE.y / lum( env.sunE ), env.sunE.z / lum( env.sunE ), THREE.LinearSRGBColorSpace ), sunLum );
+sun.castShadow = true;
+sun.shadow.mapSize.set( 4096, 4096 );
+sun.shadow.bias = - 0.0004;
+sun.shadow.normalBias = 0.02;
+scene.add( sun, sun.target );
+
+// ---------------------------------------------------------------- manifest + textures
+const manifestUrl = str( 'manifest', '/assets/textures/index.json' );
+const manifest = await ( await fetch( manifestUrl ) ).json();
+let sets = manifest.sets;
+if ( q.has( 'sets' ) ) {
+
+	const want = q.get( 'sets' ).split( ',' ).map( ( s ) => s.trim() ).filter( Boolean );
+	sets = want.map( ( id ) => manifest.sets.find( ( s ) => s.id === id ) ).filter( Boolean );
+	const missing = want.filter( ( id ) => ! manifest.sets.find( ( s ) => s.id === id ) );
+	if ( missing.length ) console.error( 'unknown set(s): ' + missing.join( ', ' ) );
+
+}
+
+const useRec = num( 'rec', 0 ) === 1;
+const tileOf = ( set ) => ( useRec && set.recommended?.tileSizeMeters ? set.recommended.tileSizeMeters : set.tileSizeMeters );
+const loader = new THREE.TextureLoader();
+async function loadTex( url, srgb ) {
+
+	const t = await loader.loadAsync( url );
+	t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+	t.wrapS = t.wrapT = THREE.RepeatWrapping;
+	t.anisotropy = ANISO;
+	return t;
+
+}
+
+const info = { isWebGPU: renderer.backend.isWebGPUBackend === true, mode, show, hdr: hdrUrl.split( '/' ).pop(), sets: [], sunDir: sunDir.toArray().map( ( v ) => Number( v.toFixed( 3 ) ) ), sunElevationDeg: Number( ( Math.asin( sunDir.y ) / DEG ).toFixed( 1 ) ), sunIrradiance: Number( sunLum.toFixed( 2 ) ), skyIrradiance: Number( skyLum.toFixed( 2 ) ), exposure: Number( exposure.toFixed( 4 ) ) };
+
+const loaded = await Promise.all( sets.map( async ( set ) => {
+
+	const m = set.maps;
+	const tex = {};
+	if ( show === 'pbr' ) {
+
+		[ tex.albedo, tex.normal, tex.arm ] = await Promise.all( [ loadTex( m.albedo, true ), loadTex( m.normal, false ), loadTex( m.arm, false ) ] );
+		if ( USE_DISP && m.height ) tex.height = await loadTex( m.height, false );
+
+	} else {
+
+		// unlit debug views: decode as sRGB so the stored 8-bit values reach the screen unchanged
+		const key = { albedo: 'albedo', normal: 'normal', arm: 'arm', ao: 'arm', rough: 'arm', metal: 'arm', height: 'height' }[ show ] ?? 'albedo';
+		tex.debug = await loadTex( m[ key ] ?? m.albedo, true );
+
+	}
+
+	const first = tex.albedo ?? tex.debug;
+	info.sets[ sets.indexOf( set ) ] = ( { id: set.id, tile: tileOf( set ), albedo: `${first.image.width}x${first.image.height}`, normal: tex.normal ? `${tex.normal.image.width}x${tex.normal.image.height}` : null, arm: tex.arm ? `${tex.arm.image.width}x${tex.arm.image.height}` : null, height: tex.height ? `${tex.height.image.width}x${tex.height.image.height}` : null } );
+	return { set, tex };
+
+} ) );
+
+function makeMaterial( { set, tex } ) {
+
+	if ( show !== 'pbr' ) {
+
+		const m = new THREE.MeshBasicNodeMaterial();
+		const t = texNode( tex.debug, uvNode() );
+		m.colorNode = { ao: t.rrr, rough: t.ggg, metal: t.bbb }[ show ] ?? t.rgb;
+		m.toneMapped = false;
+		return m;
+
+	}
+
+	const m = new THREE.MeshStandardNodeMaterial( { map: tex.albedo, normalMap: tex.normal, aoMap: tex.arm, roughnessMap: tex.arm, metalnessMap: tex.arm, roughness: 1, metalness: 1 } );
+	const rBias = set.recommended?.roughnessBias;
+	if ( useTint && rBias ) m.roughnessNode = texNode( tex.arm, uvNode() ).g.add( rBias ).clamp( 0, 1 );
+	m.normalScale.set( NSCALE, NSCALE );
+	const tint = set.recommended?.albedoTint;
+	if ( useTint && tint ) m.color.setRGB( tint[ 0 ], tint[ 1 ], tint[ 2 ], THREE.LinearSRGBColorSpace );
+	if ( useTint && set.recommended?.aoIntensity ) m.aoMapIntensity = set.recommended.aoIntensity;
+	const dScale = DISP_AUTO ? ( set.heightScaleMeters ?? 0 ) : DISP;
+	if ( dScale > 0 && tex.height ) {
+
+		m.displacementMap = tex.height;
+		m.displacementScale = dScale;
+		m.displacementBias = - dScale * ( set.heightMean ?? 0.5 );
+
+	}
+
+	return m;
+
+}
+
+function scaleUV( geo, su, sv ) {
+
+	const a = geo.attributes.uv;
+	for ( let i = 0; i < a.count; i ++ ) a.setXY( i, a.getX( i ) * su, a.getY( i ) * sv );
+	a.needsUpdate = true;
+	return geo;
+
+}
+
+// ---------------------------------------------------------------- scene content
+const content = new THREE.Group();
+scene.add( content );
+const labelAnchors = [];
+const cellCenters = [];
+
+if ( mode === 'road' ) {
+
+	const stripW = num( 'stripW', 4.5 ), len = num( 'len', 500 );
+	const total = stripW * loaded.length;
+	loaded.forEach( ( item, i ) => {
+
+		const tile = tileOf( item.set );
+		const geo = scaleUV( new THREE.PlaneGeometry( stripW, len, USE_DISP ? 64 : 1, USE_DISP ? 2048 : 1 ), stripW / tile, len / tile );
+		const mesh = new THREE.Mesh( geo, makeMaterial( item ) );
+		mesh.rotation.x = - Math.PI / 2;
+		mesh.position.set( - total / 2 + stripW * ( i + 0.5 ), 0, - len / 2 + 6 );
+		mesh.receiveShadow = true;
+		content.add( mesh );
+		labelAnchors.push( { id: item.set.id, sub: `${tile} m tile`, pos: new THREE.Vector3( mesh.position.x, 0.02, - 7 ) } );
+		cellCenters.push( new THREE.Vector3( mesh.position.x, 0, - 10 ) );
+
+	} );
+
+	// a few 1 m reference posts so the scale reads (also catch the sun for shadow direction)
+	for ( let k = 0; k < 6; k ++ ) {
+
+		const post = new THREE.Mesh( new THREE.BoxGeometry( 0.12, 1, 0.12 ), new THREE.MeshStandardMaterial( { color: 0xf2f2f2, roughness: 0.7 } ) );
+		post.position.set( total / 2 + 0.6, 0.5, - 6 - k * 12 );
+		post.castShadow = true;
+		content.add( post );
+
+	}
+
+} else if ( mode === 'scene' ) {
+
+	const gItem = loaded[ 0 ], wItem = loaded[ 1 ] ?? loaded[ 0 ];
+	const GW = 40, GD = 24, WH = num( 'wallH', 10 ), wallZ = - 8;
+	const gt = tileOf( gItem.set ), wt = tileOf( wItem.set );
+	const gSeg = USE_DISP ? [ 640, 384 ] : [ 1, 1 ];
+	const groundMesh = new THREE.Mesh( scaleUV( new THREE.PlaneGeometry( GW, GD, gSeg[ 0 ], gSeg[ 1 ] ), GW / gt, GD / gt ), makeMaterial( gItem ) );
+	groundMesh.rotation.x = - Math.PI / 2;
+	groundMesh.position.set( 0, 0.01, wallZ + GD / 2 );
+	groundMesh.receiveShadow = true;
+	const wSeg = USE_DISP ? [ 640, 160 ] : [ 1, 1 ];
+	const wallMesh = new THREE.Mesh( scaleUV( new THREE.PlaneGeometry( GW, WH, wSeg[ 0 ], wSeg[ 1 ] ), GW / wt, WH / wt ), makeMaterial( wItem ) );
+	wallMesh.rotation.x = - 0.14; // slightly leaning back like a real rock face
+	wallMesh.position.set( 0, WH / 2 - 0.05, wallZ - Math.sin( 0.14 ) * WH / 2 );
+	wallMesh.castShadow = wallMesh.receiveShadow = true;
+	content.add( groundMesh, wallMesh );
+	// 1.8 m reference figure (box) for scale
+	const ref = new THREE.Mesh( new THREE.BoxGeometry( 0.45, 1.8, 0.25 ), new THREE.MeshStandardMaterial( { color: 0xd8d8d8, roughness: 0.8 } ) );
+	ref.position.set( 3.2, 0.9, wallZ + 1.2 );
+	ref.castShadow = true;
+	content.add( ref );
+	labelAnchors.push( { id: gItem.set.id, sub: `${gt} m tile`, pos: new THREE.Vector3( - 2.5, 0.05, 4.5 ) } );
+	labelAnchors.push( { id: wItem.set.id, sub: `${wt} m tile`, pos: new THREE.Vector3( - 2.5, 4.6, wallZ - 0.4 ) } );
+	cellCenters.push( new THREE.Vector3( 0, 1, 0 ), new THREE.Vector3( 0, WH / 2, wallZ ) );
+
+} else if ( mode === 'wall' ) {
+
+	const wallH = num( 'wallH', 6 ), wallW = num( 'wallW', 8 );
+	loaded.forEach( ( item, i ) => {
+
+		const tile = tileOf( item.set );
+		const x0 = ( i - ( loaded.length - 1 ) / 2 ) * ( wallW + 0.5 );
+		const wall = new THREE.Mesh( scaleUV( new THREE.PlaneGeometry( wallW, wallH, USE_DISP ? 512 : 1, USE_DISP ? 384 : 1 ), wallW / tile, wallH / tile ), makeMaterial( item ) );
+		wall.position.set( x0, wallH / 2, 0 );
+		wall.castShadow = wall.receiveShadow = true;
+		const floor = new THREE.Mesh( scaleUV( new THREE.PlaneGeometry( wallW, 8 ), wallW / tile, 8 / tile ), makeMaterial( item ) );
+		floor.rotation.x = - Math.PI / 2;
+		floor.position.set( x0, 0, 4 );
+		floor.receiveShadow = true;
+		content.add( wall, floor );
+		labelAnchors.push( { id: item.set.id, sub: `${tile} m tile`, pos: new THREE.Vector3( x0, 0.02, 7.6 ) } );
+		cellCenters.push( new THREE.Vector3( x0, wallH * 0.42, 0 ) );
+
+	} );
+
+} else {
+
+	const n = loaded.length;
+	const cols = num( 'cols', Math.max( 1, Math.ceil( Math.sqrt( n * 1.7 ) ) ) );
+	const rows = Math.ceil( n / cols );
+	// row pitch: leave room so the raised far edge of a row never hides the row behind it at the default camera elevation
+	const pitchX = SIZE + 1.0, pitchZ = SIZE * Math.cos( TILT ) + ( SIZE * Math.sin( TILT ) ) / Math.tan( num( 'el', 38 ) * DEG ) + 1.9;
+	const R = SIZE * 0.19;
+	loaded.forEach( ( item, i ) => {
+
+		const tile = tileOf( item.set );
+		const cx = ( ( i % cols ) - ( cols - 1 ) / 2 ) * pitchX;
+		const cz = ( Math.floor( i / cols ) - ( rows - 1 ) / 2 ) * pitchZ;
+		const seg = USE_DISP ? 255 : 1;
+		const plane = new THREE.Mesh( scaleUV( new THREE.PlaneGeometry( SIZE, SIZE, seg, seg ), SIZE / tile, SIZE / tile ), makeMaterial( item ) );
+		plane.rotation.x = - Math.PI / 2 + TILT;
+		plane.position.set( cx, Math.sin( TILT ) * SIZE / 2 + 0.01, cz - 0.6 );
+		plane.castShadow = plane.receiveShadow = true;
+		const sphere = new THREE.Mesh( scaleUV( new THREE.SphereGeometry( R, 128, 64 ), ( 2 * Math.PI * R ) / tile, ( Math.PI * R ) / tile ), makeMaterial( item ) );
+		sphere.position.set( cx + SIZE / 2 - R, R, cz + Math.cos( TILT ) * SIZE / 2 - 0.6 + R * 0.55 );
+		sphere.castShadow = sphere.receiveShadow = true;
+		content.add( plane, sphere );
+		labelAnchors.push( { id: item.set.id, sub: `${tile} m tile`, pos: new THREE.Vector3( cx - SIZE * 0.12, 0.02, cz + Math.cos( TILT ) * SIZE / 2 - 0.6 + R * 1.1 ) } );
+		cellCenters.push( new THREE.Vector3( cx, Math.sin( TILT ) * SIZE * 0.4, cz ) );
+
+	} );
+
+}
+
+if ( num( 'ball', 0 ) ) {
+
+	const box = new THREE.Box3().setFromObject( content );
+	const chrome = new THREE.Mesh( new THREE.SphereGeometry( 0.5, 64, 32 ), new THREE.MeshStandardMaterial( { color: 0xffffff, metalness: 1, roughness: 0.02 } ) );
+	chrome.position.set( box.max.x + 1, 0.5, box.max.z - 0.5 );
+	const grey = new THREE.Mesh( new THREE.SphereGeometry( 0.5, 64, 32 ), new THREE.MeshStandardMaterial( { color: new THREE.Color().setRGB( 0.18, 0.18, 0.18, THREE.LinearSRGBColorSpace ), metalness: 0, roughness: 1 } ) );
+	grey.position.set( box.max.x + 2.2, 0.5, box.max.z - 0.5 );
+	chrome.castShadow = grey.castShadow = true;
+	content.add( chrome, grey );
+
+}
+
+const bounds = new THREE.Box3().setFromObject( content );
+const bSphere = bounds.getBoundingSphere( new THREE.Sphere() );
+const ground = new THREE.Mesh( new THREE.PlaneGeometry( 4000, 4000 ), new THREE.MeshStandardMaterial( { color: new THREE.Color().setRGB( 0.18, 0.18, 0.18, THREE.LinearSRGBColorSpace ), roughness: 1 } ) );
+ground.rotation.x = - Math.PI / 2;
+ground.position.y = mode === 'road' ? - 0.02 : 0;
+ground.receiveShadow = true;
+scene.add( ground );
+
+// sun shadow frustum around the content (road mode: only the first ~80 m matter)
+{
+
+	const c = mode === 'road' ? new THREE.Vector3( 0, 0, - 30 ) : bSphere.center;
+	const r = mode === 'road' ? 45 : bSphere.radius * 1.05;
+	const shadowDir = sunDir.clone();
+	if ( shadowDir.y < 0.05 ) { shadowDir.y = 0.05; shadowDir.normalize(); }
+	sun.target.position.copy( c );
+	sun.position.copy( c ).addScaledVector( shadowDir, r * 4 );
+	const sc = sun.shadow.camera;
+	sc.left = - r; sc.right = r; sc.top = r; sc.bottom = - r;
+	sc.near = r * 0.5; sc.far = r * 8;
+	sc.updateProjectionMatrix();
+
+}
+
+// ---------------------------------------------------------------- camera
+function setOrbit( azDeg, elDeg, distMul = 1, focusIndex = null ) {
+
+	// frame either everything or one cell: iteratively pull the camera in until the box corners touch the frame
+	let box = bounds.clone();
+	if ( focusIndex !== null && cellCenters[ focusIndex ] ) {
+
+		const c = cellCenters[ focusIndex ];
+		box = new THREE.Box3( new THREE.Vector3( c.x - SIZE * 0.55, 0, c.z - SIZE * 0.6 ), new THREE.Vector3( c.x + SIZE * 0.55, SIZE * 0.5, c.z + SIZE * 0.75 ) );
+
+	}
+
+	const center = box.getCenter( new THREE.Vector3() );
+	const az = azDeg * DEG, el = elDeg * DEG;
+	const dir = new THREE.Vector3( Math.cos( el ) * Math.sin( az ), Math.sin( el ), Math.cos( el ) * Math.cos( az ) );
+	const corners = [];
+	for ( let i = 0; i < 8; i ++ ) corners.push( new THREE.Vector3( i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z ) );
+	let d = box.getSize( new THREE.Vector3() ).length() * 2;
+	const v = new THREE.Vector3();
+	for ( let it = 0; it < 8; it ++ ) {
+
+		camera.position.copy( center ).addScaledVector( dir, d );
+		camera.near = Math.max( d / 400, 0.02 );
+		camera.far = 6000;
+		camera.updateProjectionMatrix();
+		camera.lookAt( center );
+		camera.updateMatrixWorld( true );
+		let m = 0;
+		for ( const c of corners ) {
+
+			v.copy( c ).project( camera );
+			m = Math.max( m, Math.abs( v.x ), Math.abs( v.y ) );
+
+		}
+
+		d *= 1 + ( m / 0.93 - 1 ) * 0.9;
+
+	}
+
+	camera.position.copy( center ).addScaledVector( dir, d * distMul );
+	camera.near = Math.max( ( d * distMul ) / 400, 0.02 );
+	camera.updateProjectionMatrix();
+	camera.lookAt( center );
+
+}
+
+function setRoadCamera( camH, lookAhead, x = 0 ) {
+
+	camera.position.set( x, camH, 4 );
+	camera.near = 0.05;
+	camera.far = 6000;
+	camera.updateProjectionMatrix();
+	camera.lookAt( x, 0, 4 - lookAhead );
+
+}
+
+const focus = q.has( 'focus' ) ? Number( q.get( 'focus' ) ) : null;
+if ( mode === 'road' ) setRoadCamera( num( 'camH', 1.25 ), num( 'lookAhead', 14 ), num( 'camX', 0 ) );
+else if ( mode === 'scene' ) {
+
+	camera.position.set( num( 'camX', - 1.5 ), num( 'camH', 1.5 ), num( 'camZ', 9 ) );
+	camera.near = 0.05; camera.far = 6000;
+	camera.updateProjectionMatrix();
+	camera.lookAt( num( 'lookX', 0.5 ), num( 'lookY', 2.2 ), - 8 );
+
+}
+else if ( mode === 'wall' ) {
+
+	camera.position.set( num( 'camX', 0 ), num( 'camH', 1.7 ), num( 'camZ', 9 ) );
+	camera.lookAt( num( 'camX', 0 ), num( 'lookY', 2.6 ), 0 );
+	if ( q.has( 'az' ) || q.has( 'el' ) || q.has( 'dist' ) ) setOrbit( num( 'az', 0 ), num( 'el', 5 ), num( 'dist', 1 ), focus );
+
+} else setOrbit( num( 'az', 0 ), num( 'el', 38 ), num( 'dist', 1 ), focus );
+
+window.__setCamera = setOrbit;
+window.__setRoadCamera = setRoadCamera;
+window.__scene = scene;
+window.__camera = camera;
+window.__renderer = renderer;
+window.__THREE = THREE;
+
+// ---------------------------------------------------------------- labels + hud
+const labelEls = [];
+if ( num( 'labels', 1 ) ) {
+
+	for ( const a of labelAnchors ) {
+
+		const el = document.createElement( 'div' );
+		el.className = 'label';
+		el.innerHTML = `${a.id} <small>${a.sub}</small>`;
+		document.body.appendChild( el );
+		labelEls.push( { el, pos: a.pos } );
+
+	}
+
+	document.getElementById( 'hud' ).textContent = `${mode} | show=${show} | ${info.hdr} | sun el ${info.sunElevationDeg} deg, E_sun ${info.sunIrradiance}, E_sky ${info.skyIrradiance} | exposure ${info.exposure} | tone ${tone}` + ( USE_DISP ? ` | disp ${DISP_AUTO ? 'auto (heightScaleMeters)' : DISP + ' m'}` : '' );
+
+}
+
+function updateLabels() {
+
+	const v = new THREE.Vector3();
+	for ( const { el, pos } of labelEls ) {
+
+		v.copy( pos ).project( camera );
+		const vis = v.z < 1 && Math.abs( v.x ) < 1.05 && Math.abs( v.y ) < 1.05;
+		el.style.display = vis ? '' : 'none';
+		el.style.left = `${( v.x * 0.5 + 0.5 ) * window.innerWidth}px`;
+		el.style.top = `${( - v.y * 0.5 + 0.5 ) * window.innerHeight}px`;
+
+	}
+
+}
+
+window.addEventListener( 'resize', () => {
+
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize( window.innerWidth, window.innerHeight );
+
+} );
+
+// optional colour grading with a 3D LUT (display-referred: applied after tone mapping + sRGB conversion)
+let pipeline = null;
+const lutUrl = str( 'lut', '' );
+if ( lutUrl ) {
+
+	const lut = await ( /\.3dl$/i.test( lutUrl ) ? new LUT3dlLoader() : new LUTCubeLoader() ).loadAsync( lutUrl );
+	pipeline = new THREE.RenderPipeline( renderer );
+	pipeline.outputColorTransform = false;
+	pipeline.outputNode = lut3D( renderOutput( pass( scene, camera ) ), texture3D( lut.texture3D ), lut.texture3D.image.width, uniform( num( 'lutI', 1 ) ) );
+	info.lut = { url: lutUrl, size: lut.texture3D.image.width, intensity: num( 'lutI', 1 ) };
+
+}
+
+let frames = 0;
+renderer.setAnimationLoop( () => {
+
+	if ( pipeline ) pipeline.render(); else renderer.render( scene, camera );
+	updateLabels();
+	frames ++;
+	if ( frames === 20 ) {
+
+		window.__info = info;
+		window.__ready = true;
+
+	}
+
+} );
+</script>
+</body>
+</html>

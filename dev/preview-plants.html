@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>plants preview</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!--
+Ground-cover test scene (three r187 WebGPURenderer). Reads /assets/plants/index.json.
+
+MODE "field" (default): 60 x 60 m meadow, ~20k GPU instances of grass + wildflowers (random Y rotation, scale 0.8-1.3,
+per-instance tint), plus a few shrubs / ferns / forest plants / debris. HDRI + shadow-casting sun.
+MODE "single" (single=<assetId>[:<variant>]): the variants of one asset in a row, close up, with the SAME foliage material.
+
+Query params:
+  view      chase | top | close | low | far        (field mode; default chase = camera 1.2 m above the ground)
+  hdr       golden | noon                           (default golden)
+  count     number of grass+flower instances        (default 20000)
+  seed      scatter seed                            (default 7)
+  lod0      grass/flower LOD0 distance in m         (default 16; beyond -> LOD1)
+  stock     1 = use the unmodified GLTFLoader materials (shows the back-face normal flip problem)
+  nmap      strength of the normal-map detail added to the bent vertex normal (default 0.6; 0 = off)
+  sss       back-light translucency strength (default 0.5; 0 = off)
+  vb        "view bend" for grass/flowers: shading normal = up + vb * horizontal view direction (default 0.35; 0 = off).
+            A meadow shows the blade faces that look at the camera, so it is brighter with the sun behind the viewer.
+  envRot    rotate sky + sun about Y in degrees
+  wind      1/0 vertex sway (default 1)
+  a2c       1/0 alpha-to-coverage (default 1)
+  shadows   1/0 (default 1)
+  exposure  tone mapping exposure (default 1 for golden, 0.6 for noon)
+  flowers   fraction of instances that are wildflowers (default 0.2)
+  lod       single mode: LOD index (default 0);  az / el / dist: single-mode camera
+After load: window.__ready === true; window.__info = { triangles, drawCalls, instances, fps, msPerFrame, ... }
+Helpers: await window.__setView(name)  ->  re-assigns LODs for that camera and returns __info;  await window.__bench(frames)
+-->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import {
+	texture, uniform, vec2, vec3, vec4, float, uv, positionGeometry, positionLocal, positionView, positionWorld, normalViewGeometry,
+	cameraViewMatrix, time, sin, mix, smoothstep, max, dot, normalize, cross, mx_noise_float, Fn, select, pow, abs, clamp,
+	normalWorld, normalWorldGeometry,
+} from 'three/tsl';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+const q = new URLSearchParams( location.search );
+const num = ( k, d ) => ( q.has( k ) ? Number( q.get( k ) ) : d );
+const str = ( k, d ) => ( q.has( k ) ? q.get( k ) : d );
+
+const HDRS = {
+	golden: { url: '/assets-src/plants/_hdri/syferfontein_18d_clear_puresky_1k.hdr', sun: [ 0.7687, 0.3166, 0.5558 ], sunColor: 0xffd9a8, sunI: 4.2, envRot: - 45, exposure: 1 },
+	noon: { url: '/assets-src/plants/_hdri/kloofendal_48d_partly_cloudy_puresky_1k.hdr', sun: [ 0.5543, 0.7416, 0.3778 ], sunColor: 0xfff4e4, sunI: 4.0, envRot: 0, exposure: 0.6 },
+};
+const hdrCfg = HDRS[ str( 'hdr', 'golden' ) ] || HDRS.golden;
+const FIELD = 60, HALF = FIELD / 2;
+const COUNT = num( 'count', 20000 );
+const LOD0_DIST = num( 'lod0', 16 );
+const STOCK = num( 'stock', 0 ) === 1;
+const NMAP = num( 'nmap', 0.6 );
+const SSS = num( 'sss', 0.5 );
+const VB = num( 'vb', 0.35 );
+const WIND = num( 'wind', 1 ) === 1;
+const A2C = num( 'a2c', 1 ) === 1;
+const SHADOWS = num( 'shadows', 1 ) === 1;
+const single = str( 'single', '' );
+
+// ---------------------------------------------------------------- renderer / environment
+
+const renderer = new THREE.WebGPURenderer( { antialias: true } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = num( 'exposure', hdrCfg.exposure ?? 1 );
+renderer.shadowMap.enabled = SHADOWS;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.05, 2000 );
+
+const hdr = await new HDRLoader().loadAsync( hdrCfg.url );
+hdr.mapping = THREE.EquirectangularReflectionMapping;
+scene.background = hdr;
+scene.environment = hdr;
+scene.environmentIntensity = num( 'envI', 1 );
+
+// envRot (deg) turns sky + sun together about Y, so a view can be front-, side- or back-lit without touching the cameras
+const envRot = THREE.MathUtils.degToRad( num( 'envRot', hdrCfg.envRot ?? 0 ) );
+scene.backgroundRotation.y = envRot;
+scene.environmentRotation.y = envRot;
+const sunDir = new THREE.Vector3( ...hdrCfg.sun ).normalize().applyEuler( new THREE.Euler( 0, envRot, 0 ) );
+const sun = new THREE.DirectionalLight( hdrCfg.sunColor, num( 'sunI', hdrCfg.sunI ) );
+sun.position.copy( sunDir ).multiplyScalar( 120 );
+sun.castShadow = SHADOWS;
+sun.shadow.mapSize.set( 4096, 4096 );
+const sc = sun.shadow.camera;
+sc.left = - 36; sc.right = 36; sc.top = 36; sc.bottom = - 36; sc.near = 20; sc.far = 260;
+sun.shadow.bias = - 0.0004;
+sun.shadow.normalBias = 0.03;
+scene.add( sun );
+scene.add( sun.target );
+
+// ---------------------------------------------------------------- helpers
+
+function mulberry( seed ) {
+
+	let a = seed >>> 0;
+	return () => {
+
+		a |= 0; a = a + 0x6D2B79F5 | 0;
+		let t = Math.imul( a ^ a >>> 15, 1 | a );
+		t = t + Math.imul( t ^ t >>> 7, 61 | t ) ^ t;
+		return ( ( t ^ t >>> 14 ) >>> 0 ) / 4294967296;
+
+	};
+
+}
+
+// smooth 2D value noise in [0,1]
+function makeNoise( seed ) {
+
+	const r = mulberry( seed );
+	const N = 64, g = new Float32Array( N * N );
+	for ( let i = 0; i < g.length; i ++ ) g[ i ] = r();
+	const at = ( x, y ) => g[ ( ( y % N + N ) % N ) * N + ( ( x % N + N ) % N ) ];
+	return ( x, y ) => {
+
+		const x0 = Math.floor( x ), y0 = Math.floor( y );
+		let fx = x - x0, fy = y - y0;
+		fx = fx * fx * ( 3 - 2 * fx ); fy = fy * fy * ( 3 - 2 * fy );
+		return ( at( x0, y0 ) * ( 1 - fx ) + at( x0 + 1, y0 ) * fx ) * ( 1 - fy ) + ( at( x0, y0 + 1 ) * ( 1 - fx ) + at( x0 + 1, y0 + 1 ) * fx ) * fy;
+
+	};
+
+}
+
+// ---------------------------------------------------------------- assets
+
+const index = await ( await fetch( '/assets/plants/index.json' ) ).json();
+const loader = new GLTFLoader().setMeshoptDecoder( MeshoptDecoder );
+const assets = {};   // id -> { rec, variants: { name -> { rec, lods: [ [ {geometry, material} ] ] } } }
+const sunDirU = uniform( sunDir.clone() );
+const sunColU = uniform( new THREE.Color( hdrCfg.sunColor ).multiplyScalar( sun.intensity ) );
+const materialCache = new Map();
+
+/**
+ * Reference foliage material (what the game should do with these assets):
+ *  - shading normal = the baked BENT vertex normal, NOT flipped on back faces (stock DoubleSide materials flip it -> black cards)
+ *  - optional detail from the normal map added in the card's real tangent frame
+ *  - alpha test (+ alpha to coverage), per-instance tint via instanceColor, height-weighted wind sway, cheap back-light translucency
+ */
+function foliageMaterial( src, variantHeight, windAmp, category ) {
+
+	if ( STOCK ) return src;
+	const key = src.uuid + '|' + variantHeight.toFixed( 3 ) + '|' + windAmp + '|' + category;
+	if ( materialCache.has( key ) ) return materialCache.get( key );
+	const m = new THREE.MeshStandardNodeMaterial();
+	m.name = src.name;
+	m.map = src.map;
+	m.aoMap = src.aoMap; m.roughnessMap = src.roughnessMap; m.metalnessMap = src.metalnessMap;
+	m.roughness = src.roughness; m.metalness = src.metalness;
+	m.side = src.side;
+	const isFoliage = src.alphaTest > 0;
+	if ( isFoliage ) {
+
+		m.alphaTest = src.alphaTest;
+		m.alphaToCoverage = A2C;
+		// bent normal, never flipped
+		let n = normalViewGeometry;
+		if ( VB > 0 && ( category === 'grass' || category === 'flowers' ) ) {
+
+			const Vv = normalize( positionView.negate() );
+			const upV = normalize( cameraViewMatrix.mul( vec4( 0, 1, 0, 0 ) ).xyz );
+			const Vh = Vv.sub( upV.mul( dot( Vv, upV ) ) );
+			n = normalize( n.add( Vh.mul( VB ) ) );
+
+		}
+
+		if ( NMAP > 0 && src.normalMap ) {
+
+			const mapN = texture( src.normalMap, uv() ).xy.mul( 2 ).sub( 1 );
+			const q0 = positionView.dFdx(), q1 = positionView.dFdy();
+			const st0 = uv().dFdx(), st1 = uv().dFdy();
+			const ng = normalize( cross( q0, q1 ) );
+			const q1p = cross( q1, ng ), q0p = cross( ng, q0 );
+			const T = q1p.mul( st0.x ).add( q0p.mul( st1.x ) );
+			const B = q1p.mul( st0.y ).add( q0p.mul( st1.y ) );
+			const det = max( dot( T, T ), dot( B, B ) );
+			const scale = select( det.equal( 0 ), float( 0 ), det.inverseSqrt() );
+			// glTF normal maps: +Y = up in the image = decreasing v  ->  minus B
+			const detail = T.mul( mapN.x.mul( scale ) ).sub( B.mul( mapN.y.mul( scale ) ) );
+			n = normalize( n.add( detail.mul( NMAP ) ) );
+
+		}
+
+		m.normalNode = n;
+		if ( SSS > 0 ) {
+
+			// thin-leaf transmission: looking towards the sun the blades glow in their own colour (about as bright as front-lit).
+			// NOTE: an emissive term is not shadowed - a real implementation should multiply it by the sun shadow factor.
+			const V = normalize( positionView.negate() );
+			const Lv = normalize( cameraViewMatrix.mul( vec4( sunDirU, 0 ) ).xyz );
+			const back = pow( clamp( dot( V, Lv.negate() ), 0, 1 ), 1.5 );
+			const hgt = clamp( positionGeometry.y.div( variantHeight ), 0, 1 ).mul( 0.6 ).add( 0.4 );
+			m.emissiveNode = texture( src.map, uv() ).rgb.mul( vec3( 1.1, 1.0, 0.55 ) ).mul( sunColU ).mul( back ).mul( hgt ).mul( SSS * 0.5 );
+
+		}
+
+	} else {
+
+		m.normalMap = src.normalMap;
+		if ( src.normalMap ) m.normalScale.copy( src.normalScale );
+
+	}
+
+	if ( WIND && windAmp > 0 ) {
+
+		// positionLocal is already instance-transformed here; positionGeometry is the raw vertex (pivot at the base, y up)
+		const w = pow( clamp( positionGeometry.y.div( variantHeight ), 0, 1 ), 1.6 ).mul( windAmp );
+		const ph = positionLocal.x.mul( 0.35 ).add( positionLocal.z.mul( 0.27 ) );
+		const sway = sin( time.mul( 1.7 ).add( ph ) ).mul( 0.6 ).add( sin( time.mul( 3.9 ).add( ph.mul( 2.3 ) ) ).mul( 0.25 ) ).add( 0.35 );
+		m.positionNode = positionLocal.add( vec3( 0.83, 0, 0.55 ).mul( w.mul( sway ) ) );
+
+	}
+
+	const dbg = str( 'debug', '' );
+	if ( dbg === 'normal' ) m.outputNode = vec4( normalWorld.mul( 0.5 ).add( 0.5 ), 1 );
+	if ( dbg === 'gnormal' ) m.outputNode = vec4( normalWorldGeometry.mul( 0.5 ).add( 0.5 ), 1 );
+	if ( dbg === 'albedo' ) m.outputNode = vec4( texture( src.map, uv() ).rgb, 1 );
+	if ( dbg === 'ao' ) m.outputNode = vec4( texture( src.aoMap, uv() ).rrr, 1 );
+	materialCache.set( key, m );
+	return m;
+
+}
+
+for ( const rec of index.assets ) {
+
+	const gltf = await loader.loadAsync( rec.file );
+	const a = assets[ rec.id ] = { rec, variants: {} };
+	for ( const v of rec.variants ) {
+
+		const lods = v.lods.map( ( l ) => {
+
+			const node = gltf.scene.getObjectByName( l.node );
+			const prims = [];
+			node.traverse( ( o ) => {
+
+				if ( o.isMesh ) prims.push( { geometry: o.geometry, src: o.material, material: foliageMaterial( o.material, v.height || v.size[ 1 ], v.windAmplitude || 0, rec.category ) } );
+
+			} );
+			return prims;
+
+		} );
+		a.variants[ v.name ] = { rec: v, lods, category: rec.category };
+
+	}
+
+}
+
+const allVariants = Object.values( assets ).flatMap( ( a ) => Object.values( a.variants ) );
+const byCategory = ( c ) => allVariants.filter( ( v ) => v.category === c );
+
+// ---------------------------------------------------------------- ground
+
+const groundMat = new THREE.MeshPhysicalNodeMaterial( { roughness: 1, metalness: 0, specularIntensity: 0 } );   // matte: no sky sheen at grazing angles
+{
+
+	const p = positionWorld.xz;
+	const n1 = mx_noise_float( vec3( p.mul( 0.11 ), 1.7 ) ).mul( 0.5 ).add( 0.5 );
+	const n2 = mx_noise_float( vec3( p.mul( 0.9 ), 4.1 ) ).mul( 0.5 ).add( 0.5 );
+	const n3 = mx_noise_float( vec3( p.mul( 7.0 ), 9.3 ) ).mul( 0.5 ).add( 0.5 );
+	const soil = vec3( 0.05, 0.04, 0.025 );      // dark humus
+	const thatch = vec3( 0.072, 0.068, 0.026 );  // dead grass / moss
+	const green = vec3( 0.046, 0.064, 0.016 );   // short turf
+	const c = mix( mix( soil, thatch, smoothstep( 0.25, 0.75, n2 ) ), green, smoothstep( 0.3, 0.8, n1.mul( 0.7 ).add( n3.mul( 0.3 ) ) ) );
+	const n4 = mx_noise_float( vec3( p.mul( 43.0 ), 2.2 ) ).mul( 0.5 ).add( 0.5 );
+	const n5 = mx_noise_float( vec3( p.mul( 131.0 ), 6.4 ) ).mul( 0.5 ).add( 0.5 );
+	groundMat.colorNode = c.mul( n3.mul( 0.3 ).add( 0.62 ) ).mul( n4.mul( 0.5 ).add( n5.mul( 0.5 ) ).mul( 0.9 ).add( 0.55 ) );
+
+}
+
+const ground = new THREE.Mesh( new THREE.PlaneGeometry( 600, 600 ), groundMat );
+ground.rotation.x = - Math.PI / 2;
+ground.receiveShadow = true;
+scene.add( ground );
+
+// ---------------------------------------------------------------- instancing
+
+const batches = [];   // { variant, items:[{x,z,rot,scale,color}], meshes: [ [InstancedMesh per prim] per lod ], lodDist: [..] }
+const dummy = new THREE.Object3D();
+
+function makeBatch( variant, items, lodDist, castShadow ) {
+
+	const meshes = variant.lods.map( ( prims ) => prims.map( ( p ) => {
+
+		const im = new THREE.InstancedMesh( p.geometry, p.material, Math.max( 1, items.length ) );
+		im.count = 0;
+		im.frustumCulled = false;
+		im.castShadow = castShadow;
+		im.receiveShadow = true;
+		im.instanceMatrix.setUsage( THREE.DynamicDrawUsage );
+		scene.add( im );
+		return im;
+
+	} ) );
+	const b = { variant, items, meshes, lodDist };
+	batches.push( b );
+	return b;
+
+}
+
+const _c = new THREE.Color();
+function assignLODs( camPos ) {
+
+	const stats = { instances: 0, triangles: 0, perLod: [ 0, 0, 0 ] };
+	for ( const b of batches ) {
+
+		const counts = b.meshes.map( () => 0 );
+		for ( const it of b.items ) {
+
+			const d = Math.hypot( it.x - camPos.x, it.z - camPos.z );
+			let lod = 0;
+			while ( lod < b.meshes.length - 1 && d > b.lodDist[ lod ] ) lod ++;
+			dummy.position.set( it.x, it.y || 0, it.z );
+			dummy.rotation.set( 0, it.rot, 0 );
+			dummy.scale.setScalar( it.scale );
+			dummy.updateMatrix();
+			const i = counts[ lod ] ++;
+			for ( const im of b.meshes[ lod ] ) {
+
+				im.setMatrixAt( i, dummy.matrix );
+				im.setColorAt( i, _c.setRGB( it.color[ 0 ], it.color[ 1 ], it.color[ 2 ] ) );
+
+			}
+
+			stats.perLod[ lod ] ++;
+			stats.triangles += b.variant.rec.lods[ lod ].triangles;
+
+		}
+
+		b.meshes.forEach( ( prims, lod ) => prims.forEach( ( im ) => {
+
+			im.count = counts[ lod ];
+			im.visible = counts[ lod ] > 0;
+			im.instanceMatrix.needsUpdate = true;
+			if ( im.instanceColor ) im.instanceColor.needsUpdate = true;
+
+		} ) );
+		stats.instances += b.items.length;
+
+	}
+
+	return stats;
+
+}
+
+const info = { isWebGPU: renderer.backend.isWebGPUBackend === true, mode: single ? 'single' : 'field', assets: index.assets.map( ( a ) => a.id ) };
+let lodStats = null;
+
+if ( ! single ) {
+
+	// ---------------- field: grass + flowers
+	const rand = mulberry( num( 'seed', 7 ) );
+	const nA = makeNoise( 11 ), nB = makeNoise( 23 ), nC = makeNoise( 37 ), nD = makeNoise( 51 );
+	const grass = Object.fromEntries( byCategory( 'grass' ).map( ( v ) => [ v.rec.name, v ] ) );
+	const flowers = byCategory( 'flowers' );
+	const speciesList = Object.values( assets ).filter( ( a ) => a.rec.category === 'flowers' ).map( ( a ) => Object.values( a.variants ) );
+	const spNoise = speciesList.map( ( _, i ) => makeNoise( 101 + i * 13 ) );
+	const lists = new Map();
+	const push = ( variant, it ) => {
+
+		if ( ! lists.has( variant ) ) lists.set( variant, [] );
+		lists.get( variant ).push( it );
+
+	};
+	const flowerFrac = flowers.length ? num( 'flowers', 0.2 ) : 0;
+	// stratified (jittered grid) positions: random, but without the big holes / pile-ups of a pure Poisson scatter
+	const side = Math.round( Math.sqrt( COUNT ) ), cell = FIELD / side;
+	for ( let i = 0; i < side * side; i ++ ) {
+
+		const x = - HALF + ( ( i % side ) + rand() ) * cell, z = - HALF + ( Math.floor( i / side ) + rand() ) * cell;
+		const lush = nA( x * 0.07 + 5, z * 0.07 + 9 );          // large patches: lush <-> dry
+		const tallness = nB( x * 0.13 + 31, z * 0.13 + 3 );     // where the taller grass grows
+		const bloom = nC( x * 0.1 + 70, z * 0.1 + 40 );         // flower patches
+		const r = rand();
+		let variant;
+		if ( r < flowerFrac * ( 0.35 + 1.3 * bloom ) && flowers.length ) {
+
+			// each species (= asset) grows in its own soft patches; variants of the species are mixed randomly
+			let best = null, bestW = - 1;
+			speciesList.forEach( ( sp, si ) => {
+
+				const w = spNoise[ si ]( x * 0.06 + si * 17.3, z * 0.06 + si * 5.1 ) + rand() * 0.35;
+				if ( w > bestW ) {
+
+					bestW = w; best = sp;
+
+				}
+
+			} );
+			variant = best[ Math.floor( rand() * best.length ) ];
+
+		} else {
+
+			const w = {
+				grass_short: 1.2 - tallness,
+				grass_mid: 0.25 + tallness,
+				grass_tall: 0.02 + 0.3 * Math.max( 0, tallness - 0.45 ),
+				grass_dry: 0.004 + 0.45 * Math.max( 0, 0.36 - lush ),
+				grass_tuft: 0.004 + 0.35 * Math.max( 0, 0.3 - lush ),
+			};
+			let tot = 0;
+			for ( const k in w ) if ( grass[ k ] ) tot += w[ k ];
+			let t = rand() * tot;
+			for ( const k in w ) if ( grass[ k ] ) {
+
+				t -= w[ k ];
+				variant = grass[ k ];
+				if ( t <= 0 ) break;
+
+			}
+
+		}
+
+		if ( ! variant ) continue;
+		// tint: brightness + warm/cool shift from low-frequency noise, small per-instance jitter
+		const br = 0.86 + 0.26 * nD( x * 0.21, z * 0.21 ) + ( rand() - 0.5 ) * 0.1;
+		const warm = ( lush - 0.5 ) * - 0.22 + ( rand() - 0.5 ) * 0.08;   // > 0 = yellower
+		const isFlower = variant.category === 'flowers';
+		const color = isFlower ? [ 1, 1, 1 ] : [ br * ( 1 + warm ), br * ( 1 + warm * 0.25 ), br * ( 1 - warm * 0.9 ) ];
+		push( variant, { x, z, rot: rand() * Math.PI * 2, scale: 0.8 + rand() * 0.5, color } );
+
+	}
+
+	for ( const [ variant, items ] of lists ) makeBatch( variant, items, [ LOD0_DIST ], false );
+
+	// ---------------- a few shrubs, ferns, forest plants and debris (grouped like a forest edge on the left)
+	const scatter = ( variants, n, region, lodDist, shadow, scaleRange = [ 0.85, 1.2 ] ) => {
+
+		if ( ! variants.length ) return;
+		const per = new Map();
+		for ( let i = 0; i < n; i ++ ) {
+
+			const v = variants[ Math.floor( rand() * variants.length ) ];
+			const [ cx, cz, rx, rz ] = region[ Math.floor( rand() * region.length ) ];
+			const it = { x: cx + ( rand() - 0.5 ) * 2 * rx, z: cz + ( rand() - 0.5 ) * 2 * rz, rot: rand() * Math.PI * 2, scale: scaleRange[ 0 ] + rand() * ( scaleRange[ 1 ] - scaleRange[ 0 ] ), color: [ 1, 1, 1 ] };
+			if ( ! per.has( v ) ) per.set( v, [] );
+			per.get( v ).push( it );
+
+		}
+
+		for ( const [ v, items ] of per ) makeBatch( v, items, lodDist, shadow );
+
+	};
+
+	scatter( byCategory( 'shrub' ), 16, [ [ - 9, 14, 5, 5 ], [ 7, 4, 4, 5 ], [ - 5, - 8, 7, 6 ], [ 10, - 16, 6, 5 ] ], [ 22, 55 ], true );
+	scatter( byCategory( 'fern' ), 46, [ [ - 9, 14, 6, 6 ], [ 7, 4, 4, 5 ], [ - 3, 17, 3, 3 ] ], [ 14 ], true );
+	scatter( byCategory( 'forest' ), 60, [ [ - 9, 14, 6, 6 ], [ 7, 4, 4, 5 ], [ 2.5, 18, 2.5, 3 ] ], [ 12 ], false );
+	scatter( byCategory( 'debris' ), 14, [ [ - 9, 14, 6, 6 ], [ 5, 12, 5, 5 ], [ 1, 19, 3, 2 ] ], [ 14 ], true, [ 0.9, 1.3 ] );
+
+} else {
+
+	// ---------------- single asset close-up: variants in a row
+	const [ id, only ] = single.split( ':' );
+	const a = assets[ id ];
+	const lod = num( 'lod', 0 );
+	let x = 0;
+	const row = [];
+	for ( const v of Object.values( a.variants ) ) {
+
+		if ( only && v.rec.name !== only ) continue;
+		const l = Math.min( lod, v.lods.length - 1 );
+		const r = v.rec.radius;
+		x += r;
+		for ( const p of v.lods[ l ] ) {
+
+			const mesh = new THREE.Mesh( p.geometry, p.material );
+			mesh.position.set( x, 0, 0 );
+			mesh.castShadow = true; mesh.receiveShadow = true;
+			scene.add( mesh );
+
+		}
+
+		row.push( { name: v.rec.name, x, r, h: v.rec.size[ 1 ], triangles: v.rec.lods[ l ].triangles } );
+		x += r + Math.max( 0.06, r * 0.25 );
+
+	}
+
+	info.row = row;
+	const width = x, hMax = Math.max( ...row.map( ( r ) => r.h ) );
+	const center = new THREE.Vector3( width / 2 - 0.03, hMax * 0.42, 0 );
+	const radius = Math.max( width * 0.5, hMax * 0.7 );
+	const az = THREE.MathUtils.degToRad( num( 'az', 25 ) ), el = THREE.MathUtils.degToRad( num( 'el', 14 ) );
+	camera.fov = 30;
+	const tanV = Math.tan( THREE.MathUtils.degToRad( camera.fov / 2 ) );
+	const d = Math.max( width * 0.5 / ( tanV * camera.aspect ), hMax * 0.75 / tanV ) * 1.12 * num( 'dist', 1 );
+	camera.position.set( center.x + d * Math.cos( el ) * Math.sin( az ), center.y + d * Math.sin( el ), center.z + d * Math.cos( el ) * Math.cos( az ) );
+	camera.near = d / 100; camera.far = 3000;
+	camera.updateProjectionMatrix();
+	camera.lookAt( center );
+	sc.left = - radius * 1.6; sc.right = radius * 1.6; sc.top = radius * 1.6; sc.bottom = - radius * 1.6;
+	sun.target.position.copy( center );
+	sun.position.copy( center ).addScaledVector( sunDir, 120 );
+	sun.shadow.normalBias = 0.004;
+	sun.shadow.bias = - 0.0002;
+	sc.updateProjectionMatrix();
+
+}
+
+// ---------------------------------------------------------------- views
+
+const VIEWS = {
+	chase: { pos: [ 0, 1.2, 27 ], target: [ 0, 0.45, 19 ], fov: 50 },
+	low: { pos: [ - 3, 0.6, 22 ], target: [ - 4.5, 0.4, 14 ], fov: 45 },
+	close: { pos: [ 2.2, 0.75, 24.5 ], target: [ 1.2, 0.12, 21.5 ], fov: 40 },
+	top: { pos: [ 5, 12, 18 ], target: [ 0, 0, 7 ], fov: 45 },
+	far: { pos: [ 22, 6, 34 ], target: [ 0, 0, 0 ], fov: 45 },
+	edge: { pos: [ - 2.5, 1.2, 23 ], target: [ - 8, 0.7, 14 ], fov: 50 },
+};
+
+function setView( name ) {
+
+	const v = VIEWS[ name ] || VIEWS.chase;
+	camera.fov = v.fov;
+	camera.position.set( ...v.pos );
+	camera.near = 0.05; camera.far = 2000;
+	camera.updateProjectionMatrix();
+	camera.lookAt( ...v.target );
+	lodStats = assignLODs( camera.position );
+	info.view = name;
+
+}
+
+if ( ! single ) setView( str( 'view', 'chase' ) );
+if ( str( 'view', '' ) === 'sun' ) {
+
+	camera.position.set( 0, 1.5, 0 );
+	camera.lookAt( sunDir.clone().multiplyScalar( 100 ).add( camera.position ) );
+
+}
+
+window.addEventListener( 'resize', () => {
+
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize( window.innerWidth, window.innerHeight );
+
+} );
+
+// ---------------------------------------------------------------- loop / measurements
+
+let frames = 0, benchmarking = false;
+const frameTimes = [];
+let last = performance.now();
+
+function collect() {
+
+	const ri = renderer.info.render;
+	Object.assign( info, {
+		triangles: ri.triangles, drawCalls: ri.drawCalls ?? ri.calls,
+		instances: lodStats?.instances, instancesPerLod: lodStats?.perLod, fieldTriangles: lodStats?.triangles,
+		lod0Distance: LOD0_DIST, size: [ window.innerWidth, window.innerHeight ],
+	} );
+	return info;
+
+}
+
+/** GPU-synchronised timing: render N frames back to back, waiting for the GPU queue after each one. */
+async function bench( n = 120 ) {
+
+	benchmarking = true;
+	const device = renderer.backend.device;
+	for ( let i = 0; i < 10; i ++ ) {
+
+		renderer.render( scene, camera );
+		await device.queue.onSubmittedWorkDone();
+
+	}
+
+	const t0 = performance.now();
+	for ( let i = 0; i < n; i ++ ) {
+
+		renderer.render( scene, camera );
+		await device.queue.onSubmittedWorkDone();
+
+	}
+
+	const ms = ( performance.now() - t0 ) / n;
+	benchmarking = false;
+	info.msPerFrame = + ms.toFixed( 2 );
+	info.fpsUncapped = + ( 1000 / ms ).toFixed( 1 );
+	return collect();
+
+}
+
+window.__bench = bench;
+window.__setView = async ( name ) => {
+
+	setView( name );
+	frameTimes.length = 0;
+	await new Promise( ( r ) => setTimeout( r, 300 ) );
+	return collect();
+
+};
+window.__scene = scene; window.__camera = camera; window.__renderer = renderer; window.__THREE = THREE;
+
+renderer.setAnimationLoop( () => {
+
+	if ( benchmarking ) return;
+	const now = performance.now();
+	frameTimes.push( now - last );
+	last = now;
+	if ( frameTimes.length > 90 ) frameTimes.shift();
+	renderer.render( scene, camera );
+	frames ++;
+	if ( frames > 20 && frameTimes.length > 10 ) {
+
+		const avg = frameTimes.slice( 5 ).reduce( ( a, b ) => a + b, 0 ) / ( frameTimes.length - 5 );
+		info.fps = + ( 1000 / avg ).toFixed( 1 );
+
+	}
+
+	if ( frames === 30 ) {
+
+		collect();
+		window.__info = info;
+		window.__ready = true;
+
+	}
+
+} );
+</script>
+</body>
+</html>

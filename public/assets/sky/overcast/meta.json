@@ -1,0 +1,72 @@
+{
+	"id": "overcast",
+	"name": "Overcast",
+	"description": "Closed, textured stratocumulus deck; soft shadowless light for the wet-road look.",
+	"hasSun": false,
+	"sunDirection": [ 0.56833, 0.79398, 0.21585 ],
+	"sunElevationDeg": 52.56,
+	"sunAzimuthDeg": 69.2,
+	"sunColor": [ 1, 0.9919, 0.9976 ],
+	"sunColorHex": "fffeff",
+	"sunIntensity": 0,
+	"sunAngularDiameterDeg": null,
+	"shadowSoftness": "very-soft",
+	"ambientIntensity": 1,
+	"exposure": {
+		"aces": 0.52,
+		"agx": 0.55
+	},
+	"zenithColor": [ 1.8286, 1.8134, 1.8283 ],
+	"horizonColor": [ 0.7946, 0.7455, 0.696 ],
+	"horizonColors": [
+		[ 0.6144, 0.6197, 0.6181 ],
+		[ 0.7502, 0.7229, 0.6869 ],
+		[ 0.8592, 0.7562, 0.6596 ],
+		[ 1.2219, 1.0504, 0.8804 ],
+		[ 0.8573, 0.802, 0.7494 ],
+		[ 0.9146, 0.8756, 0.8378 ],
+		[ 0.5263, 0.5417, 0.5601 ],
+		[ 0.6131, 0.5953, 0.5755 ]
+	],
+	"sunsideHazeColor": [ 0.7361, 0.6901, 0.6422 ],
+	"groundColor": [ 0.5637, 0.5529, 0.5474 ],
+	"averageLuminance": 0.9098,
+	"averageColor": [ 0.9211, 0.9071, 0.9031 ],
+	"upperHemisphereLuminance": 1.2648,
+	"skyIrradiance": [ 4.7196, 4.6776, 4.6988 ],
+	"groundIrradiance": [ 1.7024, 1.685, 1.6882 ],
+	"sunIrradianceHorizontal": [ 0, 0, 0 ],
+	"sunToSkyRatio": 0,
+	"envPeakLuminance": 5.121,
+	"skyPeakLuminance": 5.3,
+	"backgroundClamp": null,
+	"fog": {
+		"color": [ 0.8038, 0.7395, 0.6732 ],
+		"density": "misty"
+	},
+	"files": {
+		"sky": "/assets/sky/overcast/sky.hdr",
+		"sky2k": "/assets/sky/overcast/sky_2k.hdr",
+		"env": "/assets/sky/overcast/env.hdr",
+		"thumb": "/assets/sky/overcast/thumb.jpg",
+		"meta": "/assets/sky/overcast/meta.json"
+	},
+	"resolution": {
+		"sky": [ 4096, 2048 ],
+		"sky2k": [ 2048, 1024 ],
+		"env": [ 1024, 512 ]
+	},
+	"conventions": {
+		"space": "three.js world space, Y up, equirect used with EquirectangularReflectionMapping and no rotation",
+		"azimuth": "degrees, atan2(x, z): 0 = +Z, 90 = +X, 180 = -Z, 270 = -X; direction = (cos(el) sin(az), sin(el), cos(el) cos(az))",
+		"horizonColors": "8 sectors of 45 deg centred on azimuth 0, 45, ... 315; elevation band 1..6 deg",
+		"fogColor": "per-channel median of horizonColors (use horizonColors / sunsideHazeColor for direction-dependent fog)",
+		"colors": "linear sRGB (Rec.709 primaries), radiance in the units of sky.hdr / env.hdr",
+		"sunIntensity": "DirectionalLight.intensity for color = sunColor; intensity * color = irradiance removed from env.hdr",
+		"backgroundClamp": "suggested min( skyRadiance, backgroundClamp ) for the visible sky before bloom / TAA (null = not needed)"
+	},
+	"source": "https://polyhaven.com/a/overcast_soil_puresky",
+	"sourceId": "overcast_soil_puresky",
+	"author": "Sergej Majboroda (original HDRI), Jarod Guest (sky edit)",
+	"license": "CC0"
+}

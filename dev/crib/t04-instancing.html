@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crib t04 - instancing / batching / LOD / sprites / compute particles</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three/webgpu';
+import {
+	Fn, If, float, int, vec2, vec3, vec4, color, uniform, texture, uv, time, hash, mix, sin, cos, smoothstep,
+	positionLocal, positionGeometry, positionWorld, normalLocal, attribute, instanceIndex, instancedBufferAttribute, instancedDynamicBufferAttribute,
+	instancedArray, instanceColor, billboarding, shapeCircle, screenUV, deltaTime, select
+} from 'three/tsl';
+import { softParticles } from 'three/addons/tsl/utils/SoftParticles.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { leafTexture, report } from './_common.js';
+
+const info = {};
+const renderer = new THREE.WebGPURenderer( { antialias: true, alpha: false } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 0.1, 300 );
+camera.position.set( 0, 9, 22 );
+camera.lookAt( 0, 1.2, 0 );
+const pmrem = new THREE.PMREMGenerator( renderer );
+scene.environment = pmrem.fromScene( new RoomEnvironment(), 0.04 ).texture;
+pmrem.dispose();
+scene.environmentIntensity = 0.5;
+scene.backgroundNode = screenUV.y.mix( color( 0x9fb6cc ), color( 0x54606e ) );
+const sun = new THREE.DirectionalLight( 0xfff0dd, 2.5 );
+sun.position.set( 8, 14, 6 );
+sun.castShadow = true;
+sun.shadow.mapSize.set( 2048, 2048 );
+Object.assign( sun.shadow.camera, { left: - 22, right: 22, top: 22, bottom: - 22, near: 1, far: 50 } );
+sun.shadow.bias = - 0.0005;
+scene.add( sun );
+const ground = new THREE.Mesh( new THREE.PlaneGeometry( 80, 80 ), new THREE.MeshStandardMaterial( { color: 0x5b6257, roughness: 0.95 } ) );
+ground.rotation.x = - Math.PI / 2;
+ground.receiveShadow = true;
+scene.add( ground );
+
+const uGame = uniform( 0 );
+const dummy = new THREE.Object3D();
+let seed = 7;
+const rnd = () => ( ( seed = ( seed * 1664525 + 1013904223 ) >>> 0 ) / 4294967296 );
+
+// ====================================================== A. InstancedMesh + node material (left)
+const COUNT = 3000;
+const bladeGeo = new THREE.ConeGeometry( 0.12, 1.4, 5, 4 );
+bladeGeo.translate( 0, 0.7, 0 );                                       // base at y = 0 so positionGeometry.y is the height
+const phase = new Float32Array( COUNT );
+for ( let i = 0; i < COUNT; i ++ ) phase[ i ] = rnd() * Math.PI * 2;
+bladeGeo.setAttribute( 'aPhase', new THREE.InstancedBufferAttribute( phase, 1 ) );  // per-instance attribute on the geometry
+
+const bladeMat = new THREE.MeshStandardNodeMaterial( { roughness: 0.8 } );
+{
+
+	const h = positionGeometry.y.div( 1.4 );                             // 0..1 along the blade, BEFORE the instance matrix
+	const aPhase = attribute( 'aPhase', 'float' );
+	const sway = sin( uGame.mul( 2.5 ).add( aPhase ) ).mul( h.mul( h ) ).mul( 0.35 );
+	// positionLocal is already multiplied by the instance matrix here -> the offset is in the InstancedMesh's object space
+	bladeMat.positionNode = positionLocal.add( vec3( sway, 0, sway.mul( 0.4 ) ) );
+	// instanceColor (setColorAt) is multiplied into the diffuse colour automatically; add a per-instance random tint via instanceIndex
+	bladeMat.colorNode = mix( color( 0x24401c ), color( 0x8fb04a ), h ).mul( hash( instanceIndex ).mul( 0.5 ).add( 0.75 ) );
+
+}
+
+const blades = new THREE.InstancedMesh( bladeGeo, bladeMat, COUNT );
+blades.instanceMatrix.setUsage( THREE.DynamicDrawUsage );              // because a few matrices are rewritten every frame below
+const c = new THREE.Color();
+for ( let i = 0; i < COUNT; i ++ ) {
+
+	dummy.position.set( - 16 + rnd() * 9, 0, - 5 + rnd() * 10 );
+	dummy.rotation.set( 0, rnd() * 6.28, 0 );
+	dummy.scale.setScalar( 0.6 + rnd() * 0.9 );
+	dummy.updateMatrix();
+	blades.setMatrixAt( i, dummy.matrix );
+	blades.setColorAt( i, c.setHSL( 0.25 + rnd() * 0.1, 0.6, 0.5 ) );   // creates instanceColor lazily (vec3 per instance)
+
+}
+
+blades.castShadow = blades.receiveShadow = true;
+blades.computeBoundingSphere();                                         // culling uses InstancedMesh.boundingSphere (all instances)
+scene.add( blades );
+info.instanced = { count: blades.count, frustumCulled: blades.frustumCulled, boundingRadius: + blades.boundingSphere.radius.toFixed( 2 ), instanceColorItemSize: blades.instanceColor.itemSize };
+
+// ---- order check: positionNode runs AFTER the instance matrix (two boxes, second rotated 90 deg; both tops must lean to +X)
+{
+
+	const g = new THREE.BoxGeometry( 0.5, 3, 0.25 );
+	g.translate( 0, 1.5, 0 );
+	const m = new THREE.MeshStandardNodeMaterial( { color: 0xd94f30 } );
+	m.positionNode = positionLocal.add( vec3( positionGeometry.y.div( 3 ).mul( 1.0 ), 0, 0 ) );
+	const im = new THREE.InstancedMesh( g, m, 2 );
+	dummy.scale.setScalar( 1 );
+	dummy.position.set( - 6.5, 0, 6 ); dummy.rotation.set( 0, 0, 0 ); dummy.updateMatrix(); im.setMatrixAt( 0, dummy.matrix );
+	dummy.position.set( - 4.5, 0, 6 ); dummy.rotation.set( 0, Math.PI / 2, 0 ); dummy.updateMatrix(); im.setMatrixAt( 1, dummy.matrix );
+	im.castShadow = true;
+	scene.add( im );
+
+}
+
+// ====================================================== B. BatchedMesh (centre-left)
+{
+
+	const box = new THREE.BoxGeometry( 0.5, 0.5, 0.5 ), sph = new THREE.SphereGeometry( 0.3, 16, 12 ), cyl = new THREE.CylinderGeometry( 0.2, 0.2, 0.6, 12 );
+	const maxInstances = 300;
+	const vCount = box.attributes.position.count + sph.attributes.position.count + cyl.attributes.position.count;
+	const iCount = box.index.count + sph.index.count + cyl.index.count;
+	const batched = new THREE.BatchedMesh( maxInstances, vCount, iCount, new THREE.MeshStandardMaterial( { roughness: 0.5 } ) );
+	const ids = [ batched.addGeometry( box ), batched.addGeometry( sph ), batched.addGeometry( cyl ) ];
+	const m4 = new THREE.Matrix4();
+	for ( let i = 0; i < maxInstances; i ++ ) {
+
+		const id = batched.addInstance( ids[ i % 3 ] );
+		m4.makeTranslation( - 5 + ( i % 10 ) * 0.8, 0.3 + Math.floor( i / 100 ) * 0.8, - 4 + ( Math.floor( i / 10 ) % 10 ) * 0.8 );
+		batched.setMatrixAt( id, m4 );
+		batched.setColorAt( id, c.setHSL( ( i % 30 ) / 30, 0.7, 0.5 ) );
+
+	}
+
+	batched.castShadow = batched.receiveShadow = true;
+	batched.perObjectFrustumCulled = true;   // default: per instance CPU culling each frame
+	batched.sortObjects = false;             // default true: per instance CPU depth sort each frame
+	scene.add( batched );
+	info.batched = { instances: batched.instanceCount, maxInstanceCount: batched.maxInstanceCount };
+	window.__batched = batched;
+
+}
+
+// ====================================================== C. LOD (centre)
+{
+
+	const lod = new THREE.LOD();
+	const mat = [ 0xff5555, 0xffaa33, 0x55aaff ].map( ( col ) => new THREE.MeshStandardMaterial( { color: col, flatShading: true } ) );
+	lod.addLevel( new THREE.Mesh( new THREE.IcosahedronGeometry( 1, 4 ), mat[ 0 ] ), 0 );
+	lod.addLevel( new THREE.Mesh( new THREE.IcosahedronGeometry( 1, 2 ), mat[ 1 ] ), 15, 0.1 );   // distance, hysteresis
+	lod.addLevel( new THREE.Mesh( new THREE.IcosahedronGeometry( 1, 0 ), mat[ 2 ] ), 40 );
+	lod.position.set( 5, 1, 4 );
+	scene.add( lod );
+	const lod2 = lod.clone();
+	lod2.position.set( 5, 1, - 20 );
+	scene.add( lod2 );
+	window.__lod = [ lod, lod2 ];
+
+}
+
+// ====================================================== D. Sprites / billboards (centre-right)
+const leaf = leafTexture( 128 );
+{
+
+	// classic single sprite (SpriteMaterial is converted to SpriteNodeMaterial automatically)
+	const s = new THREE.Sprite( new THREE.SpriteMaterial( { map: leaf, alphaTest: 0.4 } ) );
+	s.position.set( 2.5, 3.6, 0 );
+	s.scale.set( 1.6, 1.6, 1 );
+	scene.add( s );
+
+	// instanced sprites: one Sprite object, `count` instances, positions from an InstancedBufferAttribute
+	const N = 400;
+	const pos = new Float32Array( N * 3 );
+	for ( let i = 0; i < N; i ++ ) pos.set( [ 1 + rnd() * 3, 0.3 + rnd() * 2.2, - 4 + rnd() * 3 ], i * 3 );
+	const sm = new THREE.SpriteNodeMaterial( { map: leaf, alphaTest: 0.4, sizeAttenuation: true } );
+	sm.positionNode = instancedBufferAttribute( new THREE.InstancedBufferAttribute( pos, 3 ) );  // centre of each sprite (object space)
+	sm.scaleNode = hash( instanceIndex ).mul( 0.25 ).add( 0.2 );                                    // world units (sizeAttenuation true)
+	sm.rotationNode = hash( instanceIndex.add( 17 ) ).mul( 6.28 );
+	sm.colorNode = texture( leaf ).mul( vec4( hash( instanceIndex.add( 3 ) ).mul( 0.5 ).add( 0.5 ), 1, 0.6, 1 ) );
+	const cloud = new THREE.Sprite( sm );
+	cloud.count = N;
+	cloud.frustumCulled = false;   // the bounds of a Sprite do not know about positionNode
+	scene.add( cloud );
+
+	// billboarded instanced quads that only rotate around Y (tree impostor style), lit standard material
+	const q = new THREE.PlaneGeometry( 1.2, 2.4 );
+	q.translate( 0, 1.2, 0 );
+	const bm = new THREE.MeshStandardNodeMaterial( { map: leaf, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.9 } );
+	bm.vertexNode = billboarding( { horizontalRotation: true } );            // returns the CLIP SPACE position -> vertexNode (not positionNode)
+	const imp = new THREE.InstancedMesh( q, bm, 12 );
+	for ( let i = 0; i < 12; i ++ ) {
+
+		dummy.position.set( 7 + ( i % 4 ) * 1.5, 0, - 6 + Math.floor( i / 4 ) * 2.2 );
+		dummy.rotation.set( 0, 0, 0 ); dummy.scale.setScalar( 1 ); dummy.updateMatrix();
+		imp.setMatrixAt( i, dummy.matrix );
+
+	}
+
+	scene.add( imp );
+
+}
+
+// ====================================================== E. GPU particles: storage buffers + compute (right)
+const P = 20000;
+const positions = instancedArray( P, 'vec3' );    // storage buffer usable from compute + as instanced vertex attribute
+const velocities = instancedArray( P, 'vec3' );
+const origin = uniform( new THREE.Vector3( 11, 0.2, 2 ) );
+const dt = uniform( 1 / 60 );
+
+const respawn = Fn( ( [ i, t ] ) => {
+
+	const p = positions.element( i ), v = velocities.element( i );
+	const a = hash( i.add( t ) ).mul( 6.2831 ), r = hash( i.add( 13 ).add( t ) );
+	p.assign( origin.add( vec3( cos( a ).mul( r ).mul( 0.3 ), 0, sin( a ).mul( r ).mul( 0.3 ) ) ) );
+	v.assign( vec3( cos( a ).mul( r ).mul( 1.6 ), hash( i.add( 29 ).add( t ) ).mul( 4 ).add( 4 ), sin( a ).mul( r ).mul( 1.6 ) ) );
+
+}, 'void' ); // 'void' -> the call is a statement. Without it a call whose result is unused is silently dropped (or call .toStack())
+
+const computeInit = Fn( () => {
+
+	respawn( instanceIndex, float( 0 ) );
+	// spread the initial heights so the fountain starts filled
+	positions.element( instanceIndex ).y.addAssign( hash( instanceIndex.add( 5 ) ).mul( 3 ) );
+
+} )().compute( P ).setName( 'particles init' );
+
+const computeUpdate = Fn( () => {
+
+	const p = positions.element( instanceIndex ), v = velocities.element( instanceIndex );
+	v.y.subAssign( dt.mul( 9.81 ) );
+	p.addAssign( v.mul( dt ) );
+	If( p.y.lessThan( 0.02 ), () => {
+
+		respawn( instanceIndex, uGame );
+
+	} );
+
+} )().compute( P ).setName( 'particles update' );
+
+{
+
+	const pm = new THREE.SpriteNodeMaterial( { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending } );
+	pm.positionNode = positions.toAttribute();                    // storage buffer -> per-instance attribute
+	pm.scaleNode = float( 0.09 );
+	pm.colorNode = mix( color( 0x66ccff ), color( 0xffffff ), hash( instanceIndex ) );
+	// soft fade against opaque geometry (helper wraps viewportDepthTexture + perspectiveDepthToViewZ)
+	pm.opacityNode = softParticles( { opacity: shapeCircle().mul( 0.55 ), distance: 0.25, contrast: 2 } );
+	const sprites = new THREE.Sprite( pm );
+	sprites.count = P;
+	sprites.frustumCulled = false;
+	scene.add( sprites );
+
+}
+
+renderer.compute( computeInit );                                  // sync; renderer must be initialized (else use computeAsync)
+await renderer.compileComputeAsync( [ computeUpdate ] );          // optional: pre-compile the compute pipeline
+
+// ====================================================== frustum culling check (separate scene, off-screen target)
+{
+
+	const cs = new THREE.Scene();
+	const cm = new THREE.InstancedMesh( new THREE.BoxGeometry( 1, 1, 1 ), new THREE.MeshBasicMaterial(), 4 );
+	const m4 = new THREE.Matrix4();
+	for ( let i = 0; i < 4; i ++ ) cm.setMatrixAt( i, m4.makeTranslation( 100 + i, 0, 0 ) );
+	cm.computeBoundingSphere();
+	cs.add( cm );
+	const cam2 = new THREE.PerspectiveCamera( 30, 1, 0.1, 100 );
+	const rt = new THREE.RenderTarget( 64, 64 );
+	const draws = ( lookX ) => {
+
+		cam2.position.set( lookX, 0, 12 ); cam2.lookAt( lookX, 0, 0 ); cam2.updateMatrixWorld();
+		const before = renderer.info.render.drawCalls;
+		renderer.setRenderTarget( rt ); renderer.render( cs, cam2 ); renderer.setRenderTarget( null );
+		return renderer.info.render.drawCalls - before;
+
+	};
+	const r = {};
+	r.inView = draws( 101.5 );
+	r.lookingAway = draws( 0 );
+	for ( let i = 0; i < 4; i ++ ) cm.setMatrixAt( i, m4.makeTranslation( 200 + i, 0, 0 ) );
+	cm.instanceMatrix.needsUpdate = true;
+	r.movedStaleBounds = draws( 201.5 );                            // 0: culled because boundingSphere was not recomputed
+	cm.computeBoundingSphere();
+	r.movedRecomputed = draws( 201.5 );
+	cm.frustumCulled = false;
+	r.neverCulled = draws( 0 );
+	info.culling = r;
+	rt.dispose();
+
+}
+
+await renderer.compileAsync( scene, camera );
+
+let frame = 0;
+const m4 = new THREE.Matrix4();
+renderer.setAnimationLoop( () => {
+
+	if ( frame >= 40 ) return;
+	uGame.value += 1 / 30;
+	dt.value = 1 / 60;
+	renderer.compute( computeUpdate );
+	renderer.compute( computeUpdate );
+
+	// partial instance matrix update: rewrite 20 consecutive instances and upload only that range
+	const first = 100, n = 20;
+	for ( let i = first; i < first + n; i ++ ) {
+
+		blades.getMatrixAt( i, m4 );
+		m4.elements[ 13 ] = 0.6 + 0.4 * Math.sin( uGame.value * 3 + i );   // hop up and down
+		blades.setMatrixAt( i, m4 );
+
+	}
+
+	blades.instanceMatrix.addUpdateRange( first * 16, n * 16 );            // start/count in array ELEMENTS (16 floats per matrix)
+	blades.instanceMatrix.needsUpdate = true;
+
+	renderer.render( scene, camera );
+
+	if ( ++ frame === 40 ) {
+
+		info.render = { drawCalls: renderer.info.render.drawCalls, triangles: Math.round( renderer.info.render.triangles ), computeCalls: renderer.info.compute.frameCalls };
+		info.lodLevels = window.__lod.map( ( l ) => l.getCurrentLevel() );
+		info.batchedDraws = { merged: window.__batched._mergedDrawCount, multi: window.__batched._multiDrawCount };
+		info.updateRangesAfterRender = blades.instanceMatrix.updateRanges.length;
+		// GPU -> CPU readback of a storage buffer (async)
+		renderer.getArrayBufferAsync( positions.value ).then( ( buf ) => {
+
+			const f = new Float32Array( buf );
+			info.particleReadback = { floats: f.length, stride: f.length / P, first: Array.from( f.slice( 0, 8 ) ).map( ( v ) => + v.toFixed( 3 ) ) };
+			report( info );
+
+		} );
+
+	}
+
+} );
+</script>
+</body>
+</html>

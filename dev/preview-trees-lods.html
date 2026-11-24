@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tree LOD review</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!--
+Tree LOD review page (three r187 WebGPURenderer). Shows the LOD nodes of one or more variants of a tree GLB side by side.
+Query params:
+  file     GLB url (default /assets/trees/fir.glb)
+  variant  comma separated variant names (node name prefixes, e.g. fir_tall_a). "all" = every variant in the file
+  lods     comma separated LOD indices to show for each variant (default 0,1,2)
+  layout   row (default: everything along +X) | grid (variants along +X, LODs along -Z)
+  gap      extra spacing between trees in metres (default 1.5)
+  hdr      equirect .hdr for background + lighting (default: the kloofendal puresky in assets-src/trees/_hdri)
+  sun      x,y,z towards the sun (default 0.55,0.65,0.4); sunI (default 3); sunColor hex
+  az, el   camera azimuth / elevation in degrees (default 25, 6); dist = distance multiplier of the auto-fit (default 1)
+  camD     absolute camera distance in metres from the group centre (overrides dist); fov (default 35)
+  lookY    fraction of the group height the camera looks at (default 0.5)
+  ground   hex colour of the ground plane (default 8a8a84); exposure (default 1); envI (default 1); bgblur (0.25)
+  alphaTest override of the foliage alpha cutoff; alphaHash=1 uses hashed alpha instead
+  wire=1   wireframe overlay
+  bounce   irradiance of a ground-bounce hemisphere light for downward facing normals (default 1.4, 0 = off). The
+           puresky HDRIs are black below the horizon, which would render every card underside pitch black.
+  aniso    texture anisotropy (default 8)
+After load: window.__ready === true, window.__info = { nodes:[{name,triangles,x}], isWebGPU }.  window.__setCamera(az, el, distMul, camD?)
+-->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+const q = new URLSearchParams( location.search );
+const num = ( k, d ) => ( q.has( k ) ? Number( q.get( k ) ) : d );
+const str = ( k, d ) => ( q.has( k ) ? q.get( k ) : d );
+
+const renderer = new THREE.WebGPURenderer( { antialias: true } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = num( 'exposure', 1 );
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( num( 'fov', 35 ), window.innerWidth / window.innerHeight, 0.05, 3000 );
+
+const hdr = await new HDRLoader().loadAsync( str( 'hdr', '/assets-src/trees/_hdri/kloofendal_48d_partly_cloudy_puresky_2k.hdr' ) );
+hdr.mapping = THREE.EquirectangularReflectionMapping;
+scene.background = hdr;
+scene.environment = hdr;
+scene.backgroundBlurriness = num( 'bgblur', 0.25 );
+scene.environmentIntensity = num( 'envI', 1 );
+
+const gltf = await new GLTFLoader().setMeshoptDecoder( MeshoptDecoder ).loadAsync( str( 'file', '/assets/trees/fir.glb' ) );
+const byName = new Map();
+for ( const child of gltf.scene.children ) byName.set( child.name, child );
+const allVariants = [ ...new Set( [ ...byName.keys() ].map( ( n ) => n.replace( /_LOD\d+$/, '' ) ) ) ];
+const wanted = str( 'variant', 'all' ) === 'all' ? allVariants : str( 'variant', '' ).split( ',' );
+const lods = str( 'lods', '0,1,2' ).split( ',' ).map( Number );
+const gap = num( 'gap', 1.5 );
+const layout = str( 'layout', 'row' );
+
+const group = new THREE.Group();
+scene.add( group );
+const info = { isWebGPU: renderer.backend.isWebGPUBackend === true, nodes: [], variants: allVariants };
+let cursor = 0;
+for ( const v of wanted ) {
+
+	let width = 0;
+	lods.forEach( ( l, li ) => {
+
+		const src = byName.get( `${v}_LOD${l}` );
+		if ( ! src ) return;
+		const node = src.clone();
+		let triangles = 0;
+		const wires = [];
+		node.traverse( ( o ) => {
+
+			if ( ! o.isMesh ) return;
+			o.castShadow = true;
+			o.receiveShadow = true;
+			triangles += o.geometry.index.count / 3;
+			for ( const key of [ 'map', 'normalMap', 'roughnessMap', 'aoMap' ] ) if ( o.material[ key ] ) o.material[ key ].anisotropy = num( 'aniso', 8 );
+			if ( o.material.alphaTest > 0 ) {
+
+				if ( q.has( 'alphaTest' ) || q.has( 'alphaHash' ) ) o.material = o.material.clone();
+				if ( q.has( 'alphaTest' ) ) o.material.alphaTest = num( 'alphaTest', 0.45 );
+				if ( q.get( 'alphaHash' ) === '1' ) {
+
+					o.material.alphaTest = 0;
+					o.material.alphaHash = true;
+
+				}
+
+			}
+
+			if ( q.get( 'wire' ) === '1' ) wires.push( o );
+
+		} );
+		for ( const o of wires ) o.add( new THREE.Mesh( o.geometry, new THREE.MeshBasicMaterial( { color: 0x101010, wireframe: true } ) ) );
+		const box = new THREE.Box3().setFromObject( node );
+		const size = box.getSize( new THREE.Vector3() );
+		const w = Math.max( size.x, size.z );
+		if ( layout === 'grid' ) {
+
+			node.position.set( cursor + w / 2, 0, - li * ( w + gap ) );
+			width = Math.max( width, w + gap );
+
+		} else {
+
+			node.position.set( cursor + w / 2, 0, 0 );
+			cursor += w + gap;
+
+		}
+
+		group.add( node );
+		info.nodes.push( { name: `${v}_LOD${l}`, triangles, x: node.position.x, z: node.position.z, height: size.y } );
+
+	} );
+	if ( layout === 'grid' ) cursor += width;
+
+}
+
+const all = new THREE.Box3().setFromObject( group );
+const allSize = all.getSize( new THREE.Vector3() );
+const allCenter = all.getCenter( new THREE.Vector3() );
+const radius = Math.max( allSize.length() * 0.5, 0.5 );
+
+const sunDir = new THREE.Vector3( ...str( 'sun', '0.55,0.65,0.4' ).split( ',' ).map( Number ) ).normalize();
+const sun = new THREE.DirectionalLight( new THREE.Color( '#' + str( 'sunColor', 'ffffff' ) ), num( 'sunI', 3 ) );
+sun.castShadow = true;
+sun.shadow.mapSize.set( 4096, 4096 );
+sun.shadow.bias = - 0.0004;
+sun.shadow.normalBias = 0.03;
+sun.target.position.copy( allCenter );
+sun.position.copy( allCenter ).addScaledVector( sunDir, radius * 4 );
+const sc = sun.shadow.camera;
+sc.left = - radius * 1.4; sc.right = radius * 1.4; sc.top = radius * 1.4; sc.bottom = - radius * 1.4;
+sc.near = radius * 0.5; sc.far = radius * 9;
+sc.updateProjectionMatrix();
+scene.add( sun, sun.target );
+
+if ( num( 'bounce', 1.4 ) > 0 ) {
+
+	const gc = new THREE.Color( '#' + str( 'ground', '8a8a84' ) );
+	scene.add( new THREE.HemisphereLight( 0x000000, gc, num( 'bounce', 1.4 ) / Math.max( gc.r, gc.g, gc.b, 1e-3 ) ) );
+
+}
+
+const ground = new THREE.Mesh( new THREE.PlaneGeometry( 4000, 4000 ), new THREE.MeshStandardMaterial( { color: new THREE.Color( '#' + str( 'ground', '8a8a84' ) ), roughness: 0.95 } ) );
+ground.rotation.x = - Math.PI / 2;
+// the convention reports the part of a tree that belongs below the terrain as "sink"; the review plane sits at sinkY
+ground.position.y = num( 'groundY', 0 );
+ground.receiveShadow = true;
+scene.add( ground );
+
+function setCamera( azDeg, elDeg, distMul = 1, camD = null ) {
+
+	const az = THREE.MathUtils.degToRad( azDeg ), el = THREE.MathUtils.degToRad( elDeg );
+	const fovRad = THREE.MathUtils.degToRad( camera.fov );
+	const fit = radius / Math.sin( Math.min( fovRad, 2 * Math.atan( Math.tan( fovRad / 2 ) * camera.aspect ) ) / 2 );
+	const d = camD ?? fit * 1.02 * distMul;
+	const look = new THREE.Vector3( allCenter.x, all.min.y + allSize.y * num( 'lookY', 0.5 ), allCenter.z );
+	camera.position.set( look.x + d * Math.cos( el ) * Math.sin( az ), look.y + d * Math.sin( el ), look.z + d * Math.cos( el ) * Math.cos( az ) );
+	camera.near = Math.max( d / 800, 0.05 );
+	camera.far = d * 30 + 500;
+	camera.updateProjectionMatrix();
+	camera.lookAt( look );
+
+}
+
+setCamera( num( 'az', 25 ), num( 'el', 6 ), num( 'dist', 1 ), q.has( 'camD' ) ? num( 'camD', 50 ) : null );
+window.__setCamera = setCamera;
+window.__camera = camera;
+window.__scene = scene;
+window.__THREE = THREE;
+
+let frames = 0;
+renderer.setAnimationLoop( () => {
+
+	renderer.render( scene, camera );
+	if ( ++ frames === 14 ) {
+
+		window.__info = info;
+		window.__ready = true;
+
+	}
+
+} );
+</script>
+</body>
+</html>

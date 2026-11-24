@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crib bench - post-processing recipes + cost</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!--
+Post-processing recipes on the shared bench scene, with A/B timing (variant `fx` against baseline `base`, alternating batches).
+  fx / base  comma lists (base default: pass):
+             direct (renderer.render, no pipeline) | pass | msaa4 (scene pass with 4x MSAA) | mrt | ao (pre-pass + builtinAOContext) |
+             aomul (single pass, multiply) | denoise | ssgi | ssr | traa | taau | fsr1 | bloom | bloomem | mblur | dof | fxaa | smaa |
+             sharpen | film | ca | vignette | lut | lensflare
+  scale / bscale   scene pass resolution scale of the fx / base pipeline (default 1)
+  aoScale (0.5) aoSamples (16) aoRadius (0.5) giSlices (2) giSteps (8) ssrQuality (0.5) ssrDist (8) ssrScale (1)
+  frames (200 per batch)  pairs (6)  warm (40)  measure=0 -> no timing, ready after `warm` frames (for screenshots)
+  knots / trees   scene size (400 / 20000); inst=1 (default) draws the knots as one InstancedMesh (GPU bound), inst=0 as 400 meshes
+Result: window.__info = { fx, base, fxMs, baseMs, deltaMs, cpuFx, cpuBase, ... }
+-->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { pass, mrt, output, velocity, normalView, emissive, metalness, roughness, diffuseColor, packNormalToRGB, unpackRGBToNormal, sample,
+	screenUV, vec2, vec4, uniform, renderOutput, builtinAOContext, smoothstep, texture3D, add, convertToTexture } from 'three/tsl';
+import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { denoise } from 'three/addons/tsl/display/DenoiseNode.js';
+import { ssgi } from 'three/addons/tsl/display/SSGINode.js';
+import { ssr } from 'three/addons/tsl/display/SSRNode.js';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
+import { taau } from 'three/addons/tsl/display/TAAUNode.js';
+import { fsr1 } from 'three/addons/tsl/display/FSR1Node.js';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { motionBlur } from 'three/addons/tsl/display/MotionBlur.js';
+import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
+import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
+import { smaa } from 'three/addons/tsl/display/SMAANode.js';
+import { sharpen } from 'three/addons/tsl/display/SharpenNode.js';
+import { film } from 'three/addons/tsl/display/FilmNode.js';
+import { chromaticAberration } from 'three/addons/tsl/display/ChromaticAberrationNode.js';
+import { lensflare } from 'three/addons/tsl/display/LensflareNode.js';
+import { lut3D } from 'three/addons/tsl/display/Lut3DNode.js';
+import { buildBenchScene } from './_scene.js';
+import { num, str, report } from './_common.js';
+
+const renderer = new THREE.WebGPURenderer( { antialias: false, alpha: false, trackTimestamp: true, powerPreference: 'high-performance' } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1;
+renderer.shadowMap.enabled = true;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const { scene, camera, knots } = buildBenchScene( renderer, { knots: num( 'knots', 400 ), trees: num( 'trees', 20000 ), instancedKnots: num( 'inst', 1 ) === 1 } );
+
+// ------------------------------------------------------------------ pipeline builder
+function build( list, scale ) {
+
+	const fx = new Set( list.split( ',' ).filter( Boolean ) );
+	const has = ( k ) => fx.has( k );
+
+	if ( has( 'direct' ) ) return { render: () => renderer.render( scene, camera ), pipeline: null };
+
+	const pipeline = new THREE.RenderPipeline( renderer );
+
+	const needNormal = has( 'ao' ) || has( 'aomul' ) || has( 'ssgi' ) || has( 'ssr' ) || has( 'denoise' ) || has( 'mrt' );
+	const needVelocity = has( 'traa' ) || has( 'taau' ) || has( 'mblur' ) || has( 'mrt' ) || has( 'ssgi' ) || has( 'ao' ) || has( 'aomul' );
+	const usePrepass = has( 'ao' ); // official r187 AO recipe: depth/normal/velocity pre-pass + AO injected into the lighting of the scene pass
+
+	// options go to the internal RenderTarget; samples defaults to renderer.samples (4 when the renderer was created with antialias: true)
+	const scenePass = pass( scene, camera, { samples: has( 'msaa4' ) ? 4 : 0 } );
+	scenePass.setResolutionScale( scale );
+
+	let depth, normal, vel;
+
+	// every name requested later with scenePass.getTextureNode( name ) MUST be a key of the mrt() of that pass
+	const targets = { output };
+	if ( has( 'ssr' ) ) targets.metalrough = vec2( metalness, roughness );
+	if ( has( 'ssgi' ) ) targets.diffuseColor = diffuseColor;
+	if ( has( 'bloomem' ) || has( 'lensflare' ) ) targets.emissive = vec4( emissive, output.a );
+
+	if ( usePrepass ) {
+
+		const prePass = pass( scene, camera, { samples: 0 } );
+		prePass.transparent = false; // opaque objects only
+		prePass.setMRT( mrt( { output: packNormalToRGB( normalView ), velocity } ) );
+		prePass.getTexture( 'output' ).type = THREE.UnsignedByteType; // bandwidth: 8 bit normals
+		depth = prePass.getTextureNode( 'depth' );
+		vel = prePass.getTextureNode( 'velocity' );
+		const n = prePass.getTextureNode( 'output' );
+		normal = sample( ( uv ) => unpackRGBToNormal( n.sample( uv ) ) );
+
+	} else {
+
+		if ( needNormal ) targets.normal = packNormalToRGB( normalView );
+		if ( needVelocity ) targets.velocity = velocity;
+
+	}
+
+	if ( Object.keys( targets ).length > 1 ) {
+
+		scenePass.setMRT( mrt( targets ) );
+		if ( targets.normal ) scenePass.getTexture( 'normal' ).type = THREE.UnsignedByteType;
+		if ( targets.metalrough ) scenePass.getTexture( 'metalrough' ).type = THREE.UnsignedByteType;
+		if ( targets.diffuseColor ) scenePass.getTexture( 'diffuseColor' ).type = THREE.UnsignedByteType;
+
+	}
+
+	if ( ! usePrepass ) {
+
+		depth = scenePass.getTextureNode( 'depth' );
+		if ( needVelocity ) vel = scenePass.getTextureNode( 'velocity' );
+		if ( needNormal ) {
+
+			const n = scenePass.getTextureNode( 'normal' );
+			normal = sample( ( uv ) => unpackRGBToNormal( n.sample( uv ) ) );
+
+		}
+
+	}
+
+	const sceneColor = scenePass.getTextureNode( 'output' );
+	let color = sceneColor; // vec4, scene-linear HDR
+
+	// --- GTAO, official recipe: AO modulates only the indirect/ambient lighting inside the scene pass
+	if ( has( 'ao' ) ) {
+
+		const aoPass = ao( depth, normal, camera );
+		aoPass.resolutionScale = num( 'aoScale', 0.5 );
+		aoPass.samples.value = num( 'aoSamples', 16 );
+		aoPass.radius.value = num( 'aoRadius', 0.5 );
+		aoPass.useTemporalFiltering = has( 'traa' ); // true REQUIRES TRAA downstream
+		scenePass.contextNode = builtinAOContext( aoPass.getTextureNode().sample( screenUV ).r );
+
+	}
+
+	// --- GTAO, single pass variant: multiply the lit image by AO (no pre-pass; also darkens direct light)
+	if ( has( 'aomul' ) ) {
+
+		const aoPass = ao( depth, normal, camera );
+		aoPass.resolutionScale = num( 'aoScale', 0.5 );
+		aoPass.samples.value = num( 'aoSamples', 16 );
+		aoPass.radius.value = num( 'aoRadius', 0.5 );
+		aoPass.useTemporalFiltering = has( 'traa' );
+		let aoTex = aoPass.getTextureNode();
+		if ( has( 'denoise' ) ) aoTex = denoise( aoTex, depth, normal, camera ); // spatial denoise when there is no TRAA
+		color = vec4( color.rgb.mul( aoTex.r ), color.a );
+
+	}
+
+	// --- SSGI (AO + one bounce diffuse GI)
+	if ( has( 'ssgi' ) ) {
+
+		const giPass = ssgi( sceneColor, depth, normal, camera );
+		giPass.sliceCount.value = num( 'giSlices', 2 );
+		giPass.stepCount.value = num( 'giSteps', 8 );
+		giPass.useTemporalFiltering = has( 'traa' );
+		const aoN = giPass.getAONode(), giN = giPass.getGINode();
+		const diffuse = scenePass.getTextureNode( 'diffuseColor' );
+		color = vec4( add( color.rgb.mul( aoN ), diffuse.rgb.mul( giN.rgb ) ), color.a );
+
+	}
+
+	// --- SSR
+	if ( has( 'ssr' ) ) {
+
+		const mr = scenePass.getTextureNode( 'metalrough' );
+		const ssrPass = ssr( sceneColor, depth, normal, { metalnessNode: mr.r, roughnessNode: mr.g, camera } );
+		ssrPass.quality.value = num( 'ssrQuality', 0.5 );
+		ssrPass.maxDistance.value = num( 'ssrDist', 8 );
+		ssrPass.thickness.value = 0.1;
+		ssrPass.resolutionScale = num( 'ssrScale', 1 );
+		color = vec4( color.rgb.add( ssrPass.rgb ), color.a ); // premultiplied reflection -> additive
+
+	}
+
+	// --- temporal AA / upscaling (input: scene-linear HDR, before bloom)
+	if ( has( 'traa' ) ) color = traa( color, depth, vel, camera );
+	if ( has( 'taau' ) ) color = taau( color, depth, vel, camera );
+	if ( has( 'fsr1' ) ) color = fsr1( color );
+
+	// --- motion blur: the input must be a texture node (it is re-sampled along the velocity)
+	if ( has( 'mblur' ) ) color = motionBlur( convertToTexture( color ), vel.mul( uniform( 1 ) ) );
+
+	// --- depth of field
+	if ( has( 'dof' ) ) color = dof( color, scenePass.getViewZNode(), uniform( 30 ), uniform( 12 ), uniform( 4 ) );
+
+	// --- bloom (HDR, before tone mapping)
+	if ( has( 'bloom' ) ) color = color.add( bloom( color, 0.4, 0.5, 1.0 ) ); // strength, radius, threshold
+	if ( has( 'bloomem' ) ) color = color.add( bloom( scenePass.getTextureNode( 'emissive' ), 1.0, 0.5 ) );
+
+	if ( has( 'lensflare' ) ) {
+
+		const b = bloom( scenePass.getTextureNode( 'emissive' ), 1, 1 );
+		color = color.add( b ).add( lensflare( b, { threshold: uniform( 0.5 ), ghostAttenuationFactor: uniform( 25 ), ghostSpacing: uniform( 0.25 ) } ) );
+
+	}
+
+	if ( has( 'vignette' ) ) {
+
+		const v = smoothstep( 0.9, 0.35, screenUV.distance( 0.5 ) ); // 1 in the centre -> 0 in the corners
+		color = vec4( color.rgb.mul( v.mul( 0.6 ).add( 0.4 ) ), color.a );
+
+	}
+
+	// --- display-referred effects: need tone mapping + sRGB first
+	const ldr = has( 'fxaa' ) || has( 'smaa' ) || has( 'film' ) || has( 'ca' ) || has( 'lut' ) || has( 'sharpen' );
+	if ( ldr ) {
+
+		pipeline.outputColorTransform = false;
+		color = renderOutput( color ); // tone mapping + color space from the renderer settings
+		if ( has( 'lut' ) ) {
+
+			// identity 16^3 LUT (stand-in for LUTCubeLoader output: lut.texture3D)
+			const N = 16, data = new Uint8Array( N * N * N * 4 );
+			for ( let b = 0, i = 0; b < N; b ++ ) for ( let g = 0; g < N; g ++ ) for ( let r = 0; r < N; r ++, i += 4 ) {
+
+				data[ i ] = r * 255 / ( N - 1 ); data[ i + 1 ] = g * 255 / ( N - 1 ); data[ i + 2 ] = b * 255 / ( N - 1 ); data[ i + 3 ] = 255;
+
+			}
+
+			const lutTex = new THREE.Data3DTexture( data, N, N, N );
+			lutTex.format = THREE.RGBAFormat; lutTex.type = THREE.UnsignedByteType;
+			lutTex.minFilter = lutTex.magFilter = THREE.LinearFilter;
+			lutTex.wrapS = lutTex.wrapT = lutTex.wrapR = THREE.ClampToEdgeWrapping;
+			lutTex.needsUpdate = true;
+			color = lut3D( color, texture3D( lutTex ), N, uniform( 1 ) );
+
+		}
+
+		if ( has( 'ca' ) ) color = chromaticAberration( color, uniform( 0.6 ), uniform( new THREE.Vector2( 0.5, 0.5 ) ), uniform( 1.1 ) );
+		if ( has( 'fxaa' ) ) color = fxaa( color );
+		if ( has( 'smaa' ) ) color = smaa( color );
+		if ( has( 'sharpen' ) ) color = sharpen( color, 0.3 );
+		if ( has( 'film' ) ) color = film( color, uniform( 0.15 ) );
+
+	}
+
+	pipeline.outputNode = color;
+	return { render: () => pipeline.render(), pipeline };
+
+}
+
+const fxList = str( 'fx', 'pass' ), baseList = str( 'base', 'pass' );
+const A = build( baseList, num( 'bscale', 1 ) );
+const B = build( fxList, num( 'scale', 1 ) );
+
+// ------------------------------------------------------------------ measure
+// Alternating batches (base, fx, base, fx, ...) of N frames submitted back to back; after each batch the GPU queue is
+// drained (onSubmittedWorkDone) -> throughput ms/frame (CPU + GPU, independent of vsync). The cost of the variant is the
+// median of the pairwise differences, which is robust against other processes that share the GPU.
+// onSubmittedWorkDone resolves on a ~17 ms tick in Chrome -> quantisation error per batch = 17 ms / N.
+// Run with scratch run.mjs (vsync + frame rate limit disabled) so the GPU is under sustained load.
+const warm = num( 'warm', 40 ), N = num( 'frames', 200 ), pairs = num( 'pairs', 6 ), measure = num( 'measure', 1 ) === 1;
+const info = { fx: fxList, base: baseList };
+const device = renderer.backend.device;
+const drain = () => ( device ? device.queue.onSubmittedWorkDone() : Promise.resolve() );
+const med = ( arr ) => { const s = [ ...arr ].sort( ( x, y ) => x - y ); return s.length ? s[ s.length >> 1 ] : null; };
+const r2 = ( v ) => ( v === null ? null : + v.toFixed( 2 ) );
+
+const t0c = performance.now();
+A.render(); B.render();
+info.firstRenderCallsMs = Math.round( performance.now() - t0c );
+
+let frame = 0, phase = 'warm', busy = false, cur = B, tA = 0, nA = 0, cpuList = [];
+const res = { A: [], B: [] }, cpu = { A: [], B: [] }, cadence = { A: [], B: [] }, firstMs = { A: [], B: [] };
+
+renderer.setAnimationLoop( async () => {
+
+	if ( busy ) return;
+
+	const a = frame * 0.004;
+	camera.position.set( Math.sin( a ) * 30, 6.5, Math.cos( a ) * 30 );
+	camera.lookAt( 0, 1.5, 0 );
+	for ( let i = 0; i < knots.length; i += 3 ) knots[ i ].rotation.y += 0.01;
+
+	const t0 = performance.now();
+	cur.render();
+	const t1 = performance.now();
+	frame ++;
+
+	if ( phase === 'warm' ) {
+
+		if ( frame === warm >> 1 ) cur = A; // warm up both pipelines
+		if ( frame === ( warm >> 1 ) - 1 ) info.renderFx = { ...renderer.info.render };
+		if ( frame === warm - 1 ) info.renderBase = { ...renderer.info.render };
+		if ( frame === warm ) {
+
+			if ( ! measure ) { cur = B; phase = 'show'; return; }
+			busy = true; await drain(); busy = false;
+			phase = 'run'; cur = A; tA = performance.now(); nA = 0; cpuList = [];
+
+		}
+
+	} else if ( phase === 'show' ) {
+
+		if ( frame === warm + 30 ) report( info );
+
+	} else if ( phase === 'run' ) {
+
+		cpuList.push( t1 - t0 );
+		if ( ++ nA === N ) {
+
+			const key = cur === A ? 'A' : 'B';
+			cadence[ key ].push( ( performance.now() - tA ) / N );
+			busy = true; await drain(); busy = false;
+			res[ key ].push( ( performance.now() - tA ) / N );
+			cpu[ key ].push( med( cpuList ) );          // median JS time of render() per frame
+			firstMs[ key ].push( cpuList[ 0 ] );        // first frame after switching pipelines (hitch detector)
+
+			if ( res.B.length === pairs ) {
+
+				phase = 'done';
+				const d = res.B.map( ( v, i ) => v - res.A[ i ] );
+				info.baseMs = r2( Math.min( ...res.A ) );
+				info.fxMs = r2( Math.min( ...res.B ) );
+				info.deltaMs = r2( med( d ) );
+				info.deltaMin = r2( Math.min( ...d ) );
+				info.deltaMax = r2( Math.max( ...d ) );
+				info.baseAll = res.A.map( r2 ); info.fxAll = res.B.map( r2 );
+				info.cpuBase = r2( med( cpu.A ) ); info.cpuFx = r2( med( cpu.B ) );
+				info.cadBase = r2( Math.min( ...cadence.A ) ); info.cadFx = r2( Math.min( ...cadence.B ) );
+				info.switchBase = r2( med( firstMs.A ) ); info.switchFx = r2( med( firstMs.B ) );
+				info.memory = { textures: renderer.info.memory.textures, texturesMB: Math.round( renderer.info.memory.texturesSize / 1048576 ), renderTargets: renderer.info.memory.renderTargets, programs: renderer.info.memory.programs };
+				info.size = renderer.getDrawingBufferSize( new THREE.Vector2() ).toArray();
+				report( info );
+				return;
+
+			}
+
+			cur = cur === A ? B : A;
+			tA = performance.now(); nA = 0; cpuList = [];
+
+		}
+
+	}
+
+} );
+</script>
+</body>
+</html>

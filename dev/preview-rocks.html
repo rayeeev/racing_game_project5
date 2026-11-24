@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>rocks preview</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!--
+Rocks category preview (three r187 WebGPURenderer). Reads /assets/rocks/index.json and lays the variants out in a row along +X.
+Query params:
+  index     index url (default /assets/rocks/index.json)
+  assets    comma separated asset ids (default: all);  variants = comma separated substrings of variant names (default: all)
+  classes   comma separated classes (boulder,medium,small,cliff,setpiece)
+  lod       0|1|2 -> LOD shown (falls back to the last available LOD);  "all" -> every LOD, stacked along +Z behind each other
+  sink      1 -> bury every variant by its "sink" value (default 0)
+  colliders 1 -> draw the collider hull points/edges (wireframe convex hulls)
+  ref       1 -> 1.8 m tall reference box (0.5 x 1.8 x 0.3 m, orange) at the start of the row (default 1)
+  gap       gap between variants as a fraction of their width (default 0.25);  rotY = rotate every variant (deg)
+  hdr       equirect .hdr for background + lighting (default: RoomEnvironment); envI = environment intensity
+  sun       x,y,z direction towards the sun (default 0.5,0.8,0.35); sunI (default 3); sunColor hex (default ffffff)
+  ground    hex colour of the ground plane (default 5d6b3a "meadow"); groundRough (default 1)
+  az, el, dist, fov   camera (same meaning as dev/viewer.html);  focus = variant name substring to frame (default: all)
+  exposure, tone (aces|agx|neutral|none)
+  mode      "albedo" | "normal" | "orm" | "white" | "sides" -> debug material (unlit base colour / normal map as colour / ORM as colour /
+            untextured / front faces grey + back faces red)
+  wire      1 -> wireframe overlay
+After load: window.__ready === true; window.__info = { variants:[{name, asset, lod, triangles, position:[x,y,z], size}], totalTriangles }
+Helpers: window.__setCamera(az, el, dist, focusNameOrNull)
+-->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { texture as tslTexture, uv as tslUv, vec3, frontFacing, select, normalView, abs as tslAbs } from 'three/tsl';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
+
+const q = new URLSearchParams( location.search );
+const num = ( k, d ) => ( q.has( k ) ? Number( q.get( k ) ) : d );
+const str = ( k, d ) => ( q.has( k ) ? q.get( k ) : d );
+const list = ( k ) => ( q.has( k ) ? q.get( k ).split( ',' ).map( ( s ) => s.trim() ).filter( Boolean ) : null );
+
+const renderer = new THREE.WebGPURenderer( { antialias: true } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = { aces: THREE.ACESFilmicToneMapping, agx: THREE.AgXToneMapping, neutral: THREE.NeutralToneMapping, none: THREE.NoToneMapping }[ str( 'tone', 'aces' ) ] ?? THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = num( 'exposure', 1 );
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( num( 'fov', 35 ), window.innerWidth / window.innerHeight, 0.01, 5000 );
+
+const hdrUrl = str( 'hdr', '' );
+if ( hdrUrl ) {
+
+	const tex = await new HDRLoader().loadAsync( hdrUrl );
+	tex.mapping = THREE.EquirectangularReflectionMapping;
+	scene.background = tex;
+	scene.environment = tex;
+	scene.backgroundBlurriness = num( 'bgblur', 0 );
+
+} else {
+
+	const pmrem = new THREE.PMREMGenerator( renderer );
+	scene.environment = pmrem.fromScene( new RoomEnvironment(), 0.04 ).texture;
+	scene.background = new THREE.Color( 0x9aa3ad );
+
+}
+
+scene.environmentIntensity = num( 'envI', 1 );
+
+// ---- index + models ----
+const index = await ( await fetch( str( 'index', '/assets/rocks/index.json' ) ) ).json();
+const wantAssets = list( 'assets' ), wantVariants = list( 'variants' ), wantClasses = list( 'classes' );
+const lodParam = str( 'lod', '0' );
+const useSink = num( 'sink', 0 ) === 1;
+const showColliders = num( 'colliders', 0 ) === 1;
+const gapK = num( 'gap', 0.25 );
+const rotY = THREE.MathUtils.degToRad( num( 'rotY', 0 ) );
+const mode = str( 'mode', '' );
+const loader = new GLTFLoader().setMeshoptDecoder( MeshoptDecoder );
+const group = new THREE.Group();
+scene.add( group );
+const info = { isWebGPU: renderer.backend.isWebGPUBackend === true, variants: [], totalTriangles: 0 };
+const placed = [];
+let cursorX = 0;
+
+function debugMaterial( src ) {
+
+	if ( ! mode ) return src;
+	const m = new THREE.MeshBasicNodeMaterial();
+	if ( mode === 'albedo' ) m.colorNode = tslTexture( src.map, tslUv() );
+	else if ( mode === 'normal' ) { const t = src.normalMap.clone(); t.colorSpace = THREE.SRGBColorSpace; m.colorNode = tslTexture( t, tslUv() ); }
+	else if ( mode === 'orm' ) { const t = src.aoMap.clone(); t.colorSpace = THREE.SRGBColorSpace; m.colorNode = tslTexture( t, tslUv() ); }
+	else if ( mode === 'white' ) return new THREE.MeshStandardMaterial( { color: 0xb0b0b0, roughness: 0.9, side: src.side } );
+	else if ( mode === 'sides' ) {
+
+		// front faces grey, back faces red (shows which parts of an open "sheet" mesh are the unseen back / inside)
+		m.colorNode = select( frontFacing, vec3( 0.62, 0.62, 0.6 ), vec3( 0.85, 0.08, 0.05 ) ).mul( tslAbs( normalView.z ).mul( 0.65 ).add( 0.35 ) );
+		m.side = THREE.DoubleSide;
+		return m;
+
+	}
+
+	m.side = src.side;
+	return m;
+
+}
+
+if ( num( 'ref', 1 ) === 1 ) {
+
+	const ref = new THREE.Mesh( new THREE.BoxGeometry( 0.5, 1.8, 0.3 ), new THREE.MeshStandardMaterial( { color: 0xd2691e, roughness: 0.8 } ) );
+	ref.position.set( 0.25, 0.9, 0 );
+	ref.castShadow = true; ref.receiveShadow = true;
+	ref.name = 'reference_1p8m';
+	group.add( ref );
+	cursorX = 0.5 + 0.6;
+
+}
+
+for ( const asset of index.assets ) {
+
+	if ( wantAssets && ! wantAssets.includes( asset.id ) ) continue;
+	if ( wantClasses && ! wantClasses.includes( asset.class ) ) continue;
+	const variants = asset.variants.filter( ( v ) => ! wantVariants || wantVariants.some( ( s ) => v.name.includes( s ) ) );
+	if ( variants.length === 0 ) continue;
+	const gltf = await loader.loadAsync( asset.file + ( q.has( 'nocache' ) ? '?t=' + Date.now() : '' ) );
+	const materialCache = new Map();
+	for ( const v of variants ) {
+
+		const lods = lodParam === 'all' ? v.lods.map( ( _, i ) => i ) : [ Math.min( Number( lodParam ), v.lods.length - 1 ) ];
+		const w = Math.abs( Math.cos( rotY ) ) * v.size[ 0 ] + Math.abs( Math.sin( rotY ) ) * v.size[ 2 ];
+		const d = Math.abs( Math.sin( rotY ) ) * v.size[ 0 ] + Math.abs( Math.cos( rotY ) ) * v.size[ 2 ];
+		const x = cursorX + w / 2;
+		lods.forEach( ( l, row ) => {
+
+			const src = gltf.scene.getObjectByName( v.lods[ l ].node );
+			if ( ! src ) { console.error( 'missing node', v.lods[ l ].node ); return; }
+			const holder = new THREE.Group();
+			holder.name = v.name + '_holder_LOD' + l;
+			const mesh = src.clone();
+			if ( mode || num( 'wire', 0 ) ) {
+
+				if ( ! materialCache.has( src.material ) ) materialCache.set( src.material, debugMaterial( src.material ) );
+				mesh.material = materialCache.get( src.material );
+
+			}
+
+			mesh.castShadow = true; mesh.receiveShadow = true;
+			holder.add( mesh );
+			if ( num( 'wire', 0 ) ) {
+
+				const wf = new THREE.LineSegments( new THREE.WireframeGeometry( mesh.geometry ), new THREE.LineBasicMaterial( { color: 0x000000, transparent: true, opacity: 0.35 } ) );
+				holder.add( wf );
+
+			}
+
+			if ( showColliders && v.collider && v.collider.type !== 'none' ) {
+
+				const hulls = v.collider.type === 'hull' ? [ v.collider.points ] : v.collider.hulls;
+				hulls.forEach( ( pts, hi ) => {
+
+					const geo = new ConvexGeometry( pts.map( ( p ) => new THREE.Vector3( ...p ) ) );
+					const col = new THREE.Color().setHSL( ( hi * 0.17 + 0.33 ) % 1, 1, 0.5 );
+					holder.add( new THREE.LineSegments( new THREE.EdgesGeometry( geo, 1 ), new THREE.LineBasicMaterial( { color: col } ) ) );
+					const solid = new THREE.Mesh( geo, new THREE.MeshBasicMaterial( { color: col, transparent: true, opacity: 0.18, depthWrite: false } ) );
+					holder.add( solid );
+
+				} );
+
+			}
+
+			holder.rotation.y = rotY;
+			holder.position.set( x, useSink ? - v.sink : 0, - row * ( d * 1.25 + 0.2 ) );
+			group.add( holder );
+			const tris = mesh.geometry.index.count / 3;
+			info.variants.push( { name: v.name, asset: asset.id, lod: l, triangles: tris, position: holder.position.toArray(), size: v.size } );
+			info.totalTriangles += tris;
+			placed.push( { name: v.name, holder } );
+
+		} );
+		cursorX += w + Math.max( w, 0.3 ) * gapK + 0.05;
+
+	}
+
+}
+
+// ---- lights / ground ----
+const sunDir = new THREE.Vector3( ...str( 'sun', '0.5,0.8,0.35' ).split( ',' ).map( Number ) ).normalize();
+const sun = new THREE.DirectionalLight( new THREE.Color( '#' + str( 'sunColor', 'ffffff' ) ), num( 'sunI', 3 ) );
+sun.castShadow = true;
+sun.shadow.mapSize.set( 4096, 4096 );
+sun.shadow.bias = - 0.0005;
+sun.shadow.normalBias = 0.02;
+scene.add( sun );
+scene.add( sun.target );
+
+const all = new THREE.Box3().setFromObject( group );
+const allSize = all.getSize( new THREE.Vector3() );
+const allCenter = all.getCenter( new THREE.Vector3() );
+const radius = Math.max( allSize.length() * 0.5, 0.05 );
+sun.target.position.copy( allCenter );
+sun.position.copy( allCenter ).addScaledVector( sunDir, radius * 4 );
+const sc = sun.shadow.camera;
+sc.left = - radius * 1.2; sc.right = radius * 1.2; sc.top = radius * 1.2; sc.bottom = - radius * 1.2;
+sc.near = radius * 0.5; sc.far = radius * 8;
+sc.updateProjectionMatrix();
+
+const ground = new THREE.Mesh(
+	new THREE.PlaneGeometry( radius * 60, radius * 60 ),
+	new THREE.MeshStandardMaterial( { color: new THREE.Color( '#' + str( 'ground', '5d6b3a' ) ), roughness: num( 'groundRough', 1 ) } )
+);
+ground.rotation.x = - Math.PI / 2;
+ground.receiveShadow = true;
+scene.add( ground );
+
+function setCamera( azDeg, elDeg, distMul = 1, focusName = null ) {
+
+	let box = all;
+	if ( focusName ) {
+
+		const b = new THREE.Box3();
+		for ( const p of placed ) if ( p.name.includes( focusName ) ) b.expandByObject( p.holder );
+		if ( ! b.isEmpty() ) box = b;
+
+	}
+
+	const center = box.getCenter( new THREE.Vector3() );
+	const r = Math.max( box.getSize( new THREE.Vector3() ).length() * 0.5, 0.02 );
+	const az = THREE.MathUtils.degToRad( azDeg ), el = THREE.MathUtils.degToRad( elDeg );
+	const fovRad = THREE.MathUtils.degToRad( camera.fov );
+	const fit = r / Math.sin( Math.min( fovRad, 2 * Math.atan( Math.tan( fovRad / 2 ) * camera.aspect ) ) / 2 );
+	const d = fit * 1.08 * distMul;
+	camera.position.set( center.x + d * Math.cos( el ) * Math.sin( az ), center.y + d * Math.sin( el ), center.z + d * Math.cos( el ) * Math.cos( az ) );
+	camera.near = Math.max( d / 500, 0.002 );
+	camera.far = Math.max( d * 60, 100 );
+	camera.updateProjectionMatrix();
+	camera.lookAt( center );
+
+}
+
+setCamera( num( 'az', 20 ), num( 'el', 14 ), num( 'dist', 1 ), str( 'focus', '' ) || null );
+window.__setCamera = setCamera;
+window.__scene = scene;
+window.__camera = camera;
+window.__renderer = renderer;
+window.__THREE = THREE;
+
+window.addEventListener( 'resize', () => {
+
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize( window.innerWidth, window.innerHeight );
+
+} );
+
+let frames = 0;
+renderer.setAnimationLoop( () => {
+
+	renderer.render( scene, camera );
+	frames ++;
+	if ( frames === 12 ) {
+
+		window.__info = info;
+		window.__ready = true;
+
+	}
+
+} );
+</script>
+</body>
+</html>

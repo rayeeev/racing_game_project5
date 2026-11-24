@@ -1,0 +1,72 @@
+{
+	"id": "dusk",
+	"name": "Dusk",
+	"description": "Blue hour after sunset: rose/violet afterglow on one horizon, deep blue-violet zenith; for headlight driving.",
+	"hasSun": false,
+	"sunDirection": [ 0.78559, 0.25162, 0.56527 ],
+	"sunElevationDeg": 14.57,
+	"sunAzimuthDeg": 54.26,
+	"sunColor": [ 1, 0.502, 0.4496 ],
+	"sunColorHex": "ffbcb3",
+	"sunIntensity": 0,
+	"sunAngularDiameterDeg": null,
+	"shadowSoftness": "very-soft",
+	"ambientIntensity": 1,
+	"exposure": {
+		"aces": 0.18,
+		"agx": 0.16
+	},
+	"zenithColor": [ 0.5861, 0.67, 1.1742 ],
+	"horizonColor": [ 1.3147, 0.8123, 0.9416 ],
+	"horizonColors": [
+		[ 1.8739, 1.1378, 1.2403 ],
+		[ 4.287, 1.8831, 1.6162 ],
+		[ 1.4293, 0.9636, 1.1611 ],
+		[ 0.738, 0.6145, 0.8412 ],
+		[ 0.4418, 0.3962, 0.579 ],
+		[ 0.4835, 0.4278, 0.6127 ],
+		[ 0.5244, 0.4615, 0.6573 ],
+		[ 0.7396, 0.6139, 0.8249 ]
+	],
+	"sunsideHazeColor": [ 4.9137, 2.1396, 1.7694 ],
+	"groundColor": [ 0.7777, 0.5828, 0.7585 ],
+	"averageLuminance": 0.944,
+	"averageColor": [ 1.1122, 0.871, 1.1724 ],
+	"upperHemisphereLuminance": 1.2511,
+	"skyIrradiance": [ 3.7265, 3.3632, 5.0015 ],
+	"groundIrradiance": [ 1.694, 1.4238, 2.0173 ],
+	"sunIrradianceHorizontal": [ 0, 0, 0 ],
+	"sunToSkyRatio": 0,
+	"envPeakLuminance": 5.459,
+	"skyPeakLuminance": 5.6,
+	"backgroundClamp": null,
+	"fog": {
+		"color": [ 0.7388, 0.6142, 0.833 ],
+		"density": "hazy"
+	},
+	"files": {
+		"sky": "/assets/sky/dusk/sky.hdr",
+		"sky2k": "/assets/sky/dusk/sky_2k.hdr",
+		"env": "/assets/sky/dusk/env.hdr",
+		"thumb": "/assets/sky/dusk/thumb.jpg",
+		"meta": "/assets/sky/dusk/meta.json"
+	},
+	"resolution": {
+		"sky": [ 4096, 2048 ],
+		"sky2k": [ 2048, 1024 ],
+		"env": [ 1024, 512 ]
+	},
+	"conventions": {
+		"space": "three.js world space, Y up, equirect used with EquirectangularReflectionMapping and no rotation",
+		"azimuth": "degrees, atan2(x, z): 0 = +Z, 90 = +X, 180 = -Z, 270 = -X; direction = (cos(el) sin(az), sin(el), cos(el) cos(az))",
+		"horizonColors": "8 sectors of 45 deg centred on azimuth 0, 45, ... 315; elevation band 1..6 deg",
+		"fogColor": "per-channel median of horizonColors (use horizonColors / sunsideHazeColor for direction-dependent fog)",
+		"colors": "linear sRGB (Rec.709 primaries), radiance in the units of sky.hdr / env.hdr",
+		"sunIntensity": "DirectionalLight.intensity for color = sunColor; intensity * color = irradiance removed from env.hdr",
+		"backgroundClamp": "suggested min( skyRadiance, backgroundClamp ) for the visible sky before bloom / TAA (null = not needed)"
+	},
+	"source": "https://polyhaven.com/a/qwantani_dusk_2_puresky",
+	"sourceId": "qwantani_dusk_2_puresky",
+	"author": "Greg Zaal (photography), Jarod Guest (processing)",
+	"license": "CC0"
+}

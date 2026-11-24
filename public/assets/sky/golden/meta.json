@@ -1,0 +1,78 @@
+{
+	"id": "golden",
+	"name": "Golden Hour",
+	"description": "Low warm sun (7 deg) with cumulus clouds catching golden light; long crisp shadows, deep blue zenith.",
+	"hasSun": true,
+	"sunDirection": [ 0.6402, 0.12661, 0.7577 ],
+	"sunElevationDeg": 7.27,
+	"sunAzimuthDeg": 40.2,
+	"sunColor": [ 1, 0.8466, 0.4227 ],
+	"sunColorHex": "ffedae",
+	"sunIntensity": 3.8966,
+	"sunAngularDiameterDeg": 0.53,
+	"shadowSoftness": "sharp",
+	"ambientIntensity": 1,
+	"exposure": {
+		"aces": 1,
+		"agx": 1.2
+	},
+	"zenithColor": [ 0.09, 0.102, 0.1383 ],
+	"horizonColor": [ 0.6814, 0.7552, 0.652 ],
+	"horizonColors": [
+		[ 0.6056, 0.7457, 0.7126 ],
+		[ 2.666, 2.4697, 1.563 ],
+		[ 0.5358, 0.6728, 0.6577 ],
+		[ 0.2868, 0.3902, 0.4495 ],
+		[ 0.3086, 0.3872, 0.4086 ],
+		[ 0.3546, 0.4354, 0.416 ],
+		[ 0.3641, 0.4787, 0.4949 ],
+		[ 0.3296, 0.4618, 0.5141 ]
+	],
+	"sunsideHazeColor": [ 2.0732, 1.9897, 1.3823 ],
+	"groundColor": [ 0.173, 0.1922, 0.2023 ],
+	"averageLuminance": 0.2475,
+	"averageColor": [ 0.2265, 0.2512, 0.2732 ],
+	"upperHemisphereLuminance": 0.3062,
+	"skyIrradiance": [ 0.5827, 0.6448, 0.7945 ],
+	"groundIrradiance": [ 0.2793, 0.3116, 0.3728 ],
+	"sunIrradianceHorizontal": [ 0.4934, 0.4177, 0.2085 ],
+	"sunToSkyRatio": 0.652,
+	"envPeakLuminance": 35.412,
+	"skyPeakLuminance": 68319.9,
+	"backgroundClamp": 64,
+	"fog": {
+		"color": [ 0.3593, 0.4702, 0.5045 ],
+		"density": "hazy"
+	},
+	"files": {
+		"sky": "/assets/sky/golden/sky.hdr",
+		"sky2k": "/assets/sky/golden/sky_2k.hdr",
+		"env": "/assets/sky/golden/env.hdr",
+		"thumb": "/assets/sky/golden/thumb.jpg",
+		"meta": "/assets/sky/golden/meta.json"
+	},
+	"resolution": {
+		"sky": [ 4096, 2048 ],
+		"sky2k": [ 2048, 1024 ],
+		"env": [ 1024, 512 ]
+	},
+	"conventions": {
+		"space": "three.js world space, Y up, equirect used with EquirectangularReflectionMapping and no rotation",
+		"azimuth": "degrees, atan2(x, z): 0 = +Z, 90 = +X, 180 = -Z, 270 = -X; direction = (cos(el) sin(az), sin(el), cos(el) cos(az))",
+		"horizonColors": "8 sectors of 45 deg centred on azimuth 0, 45, ... 315; elevation band 1..6 deg",
+		"fogColor": "per-channel median of horizonColors (use horizonColors / sunsideHazeColor for direction-dependent fog)",
+		"colors": "linear sRGB (Rec.709 primaries), radiance in the units of sky.hdr / env.hdr",
+		"sunIntensity": "DirectionalLight.intensity for color = sunColor; intensity * color = irradiance removed from env.hdr",
+		"backgroundClamp": "suggested min( skyRadiance, backgroundClamp ) for the visible sky before bloom / TAA (null = not needed)"
+	},
+	"source": "https://polyhaven.com/a/table_mountain_2_puresky",
+	"sourceId": "table_mountain_2_puresky",
+	"author": "Greg Zaal (original HDRI), Jarod Guest (sky edit)",
+	"license": "CC0",
+	"sunRemoval": {
+		"maskRadiusDeg": 1,
+		"clampLuminance": 29.199,
+		"clampedPixels4k": 411,
+		"skyPixelsAboveHalfFloatMax": 9
+	}
+}

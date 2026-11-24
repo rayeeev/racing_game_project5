@@ -1,0 +1,32 @@
+{
+  "name": "cs61b-project-5",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CS 61B Project 5 (the joke one) - a realistic mountain-pass time-attack driving game built with Three.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test tests/core/ tests/sim/",
+    "lint": "eslint src tools tests"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "0.21.0",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.5.1",
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "@types/three": "0.187.0",
+    "draco3dgltf": "^1.5.7",
+    "eslint": "^10.15.0",
+    "globals": "^16.0.0",
+    "meshoptimizer": "^1.3.0",
+    "playwright-core": "^1.65.1",
+    "sharp": "^0.35.5",
+    "vite": "^8.3.8"
+  }
+}

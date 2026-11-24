@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>spike - webgpu pipeline</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { pass, mrt, output, velocity, normalView, packNormalToRGB, unpackRGBToNormal, sample, vec4 } from 'three/tsl';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const Q = new URLSearchParams( location.search ); const renderer = new THREE.WebGPURenderer( { antialias: false, reversedDepthBuffer: Q.get( 'rev' ) === '1', logarithmicDepthBuffer: Q.get( 'log' ) === '1' } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 30000 );
+camera.position.set( 0, 2.2, 7 );
+camera.lookAt( 0, 0.6, 0 );
+
+const pmrem = new THREE.PMREMGenerator( renderer );
+const envRT = pmrem.fromScene( new RoomEnvironment(), 0.04 );
+scene.environment = envRT.texture;
+scene.background = new THREE.Color( 0x8899aa );
+
+const sun = new THREE.DirectionalLight( 0xfff0dd, 3 );
+sun.position.set( 4, 8, 3 );
+sun.castShadow = true;
+sun.shadow.mapSize.set( 2048, 2048 );
+sun.shadow.camera.left = - 8; sun.shadow.camera.right = 8; sun.shadow.camera.top = 8; sun.shadow.camera.bottom = - 8;
+scene.add( sun );
+
+const floor = new THREE.Mesh( new THREE.PlaneGeometry( 20000, 20000 ), new THREE.MeshStandardMaterial( { color: 0x666666, roughness: 0.6 } ) );
+floor.rotation.x = - Math.PI / 2;
+floor.receiveShadow = true;
+scene.add( floor );
+
+const colors = [ 0xb00012, 0x0a3d91, 0xe0c020, 0x111111, 0xdddddd ];
+for ( let i = 0; i < 5; i ++ ) {
+
+	const m = new THREE.MeshPhysicalMaterial( { color: colors[ i ], metalness: 0.6, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.03 } );
+	const s = new THREE.Mesh( new THREE.SphereGeometry( 0.6, 64, 32 ), m );
+	s.position.set( ( i - 2 ) * 1.5, 0.6, 0 );
+	s.castShadow = true; s.receiveShadow = true;
+	scene.add( s );
+
+}
+
+const emissive = new THREE.Mesh( new THREE.BoxGeometry( 0.3, 0.3, 0.3 ), new THREE.MeshStandardMaterial( { color: 0x000000, emissive: 0xff5522, emissiveIntensity: 20 } ) );
+emissive.position.set( 0, 1.8, - 1 );
+scene.add( emissive );
+
+const pipeline = new THREE.RenderPipeline( renderer );
+const scenePass = pass( scene, camera );
+scenePass.setMRT( mrt( { output, velocity, normal: packNormalToRGB( normalView ) } ) );
+const color = scenePass.getTextureNode( 'output' );
+const depth = scenePass.getTextureNode( 'depth' );
+const vel = scenePass.getTextureNode( 'velocity' );
+const normal = sample( ( uv ) => unpackRGBToNormal( scenePass.getTextureNode( 'normal' ).sample( uv ) ) );
+
+const aoNode = ao( depth, normal, camera );
+const withAo = vec4( color.rgb.mul( aoNode.getTextureNode().r ), color.a );
+const aa = traa( withAo, depth, vel, camera );
+const bloomNode = bloom( aa, 0.35, 0.4, 1.0 );
+pipeline.outputNode = aa.add( bloomNode );
+
+let frames = 0;
+renderer.setAnimationLoop( () => {
+
+	pipeline.render();
+	frames ++;
+	if ( frames === 30 ) {
+
+		window.__info = {
+			isWebGPU: renderer.backend.isWebGPUBackend === true,
+			backend: renderer.backend.constructor.name,
+			frames,
+		};
+		window.__ready = true;
+
+	}
+
+} );
+</script>
+</body>
+</html>

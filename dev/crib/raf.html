@@ -1,0 +1,3 @@
+<!doctype html><html><head><meta charset="utf-8"><title>raf</title><link rel="icon" href="data:,"></head><body><script>
+const ts=[];function f(t){ts.push(t);if(ts.length<90)requestAnimationFrame(f);else{const d=[];for(let i=1;i<ts.length;i++)d.push(ts[i]-ts[i-1]);d.sort((a,b)=>a-b);window.__info={median:d[d.length>>1],min:d[0],max:d[d.length-1]};window.__ready=true;}}requestAnimationFrame(f);
+</script></body></html>

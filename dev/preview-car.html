@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>car preview - material recipe</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!--
+Player-car preview + REFERENCE IMPLEMENTATION of the material recipe stored in /assets/car/car.json ("materials").
+three r187, WebGPURenderer, TSL node materials. createCarMaterials() below is written to be lifted into the game.
+
+Query params
+  model     car.glb (default) | car_lod1.glb | any url           paint   rosso | bianco | blu | grigio | giallo (car.json materials.paints)
+  hdr       day (default) | sunset | sunset2 | <url of an equirect .hdr>
+  view      front34 (default) | rear34 | side | top | interior | cockpit | bonnet | chase | wheel | wheelrear | tail | head | low ...
+  yaw       rotation of the car about Y in degrees (default: nose 35 deg towards the sun azimuth-independent, see code)
+  lights    comma list of: drl, head, tail, brake, reverse, fog, indl, indr   (default "drl")
+  steer     front wheel steering angle in degrees (positive = left); the steering wheel follows with ratio 12
+  spin      wheel rotation in degrees          sw = steering wheel angle override (deg)
+  exposure  (default 1)   tone = aces | agx | neutral   bloom = 1   envclamp = max sky radiance kept in the IBL (default 40)
+  ground    1/0           shadow = 1/0 ground AO texture under the car (default 1)
+  debug     ao (vertex AO as unlit grey) | plain (materials stored in the GLB) | none
+  hide      comma list of node names to hide         only = comma list of node names to show exclusively
+Globals: window.__ready, __info, __setView(nameOrObj), __setPaint(name), __setLights({drl,head,tail,brake,reverse,fog,indl,indr}),
+         __setPose({steer, spin, sw}), __car (root), __materials, __spec
+-->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import {
+	Fn, uniform, float, vec2, vec3, vec4, mix, smoothstep, step, select, floor, fract, abs, max, dot, pow, sqrt, length, normalize, atan, mod,
+	uv, texture, normalMap, positionLocal, normalLocal, normalView, normalViewGeometry, positionView, positionViewDirection, transformNormalToView,
+	vertexColor, mx_cell_noise_float, mx_noise_float, mx_noise_vec3, pass, fwidth,
+} from 'three/tsl';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+
+const q = new URLSearchParams( location.search );
+const num = ( k, d ) => ( q.has( k ) ? Number( q.get( k ) ) : d );
+const str = ( k, d ) => ( q.has( k ) ? q.get( k ) : d );
+
+// =====================================================================================================================
+//  MATERIAL RECIPE  (reference implementation; `recipe` = car.json "materials")
+// =====================================================================================================================
+function createCarMaterials( recipe, textures ) {
+
+	const R = recipe.byMaterial;
+	const col = ( hex ) => new THREE.Color( hex ); // sRGB hex -> linear working space
+
+	// ---- shared nodes ----
+	const aoBaked = vertexColor().r; // baked sky visibility (COLOR_0)
+	const ao = ( k, floor = 0 ) => mix( float( 1 ), mix( float( floor ), float( 1 ), aoBaked ), float( k ) );
+	const pixel = length( fwidth( positionLocal ) ).mul( 0.7 ); // approx. size of one pixel on the surface (m)
+	const resolved = ( featureSize, lo = 0.6, hi = 2.2 ) => smoothstep( lo, hi, float( featureSize ).div( pixel ) ); // 1 when the feature spans > hi pixels
+	// object-space 2D coordinates on the plane perpendicular to the dominant normal axis (cheap "triplanar")
+	const nAbs = normalLocal.abs();
+	const xDom = nAbs.x.greaterThan( nAbs.y ).and( nAbs.x.greaterThan( nAbs.z ) );
+	const yDom = nAbs.y.greaterThan( nAbs.z );
+	const planar = select( xDom, positionLocal.zy, select( yDom, positionLocal.xz, positionLocal.xy ) );
+	const lift = ( t ) => select( xDom, vec3( 0, t.y, t.x ), select( yDom, vec3( t.x, 0, t.y ), vec3( t.x, t.y, 0 ) ) ); // planar 2D vector -> object space
+	const bumpNormal = ( offsetLocal ) => transformNormalToView( normalize( normalLocal.add( offsetLocal ) ) );
+
+	const u = {}; // uniforms the game drives at runtime
+	const materials = {};
+
+	// ---- lights: one intensity uniform per function ----
+	const L = recipe.lights;
+	for ( const key of [ 'headlight', 'drl', 'tail', 'brakeHigh', 'reverse', 'fogRear', 'indicatorLeft', 'indicatorRight' ] ) u[ key ] = uniform( 0 );
+	const lightMat = ( name, key, def ) => {
+
+		const m = def.class === 'MeshPhysicalNodeMaterial' ? new THREE.MeshPhysicalNodeMaterial() : new THREE.MeshStandardNodeMaterial();
+		m.name = name;
+		m.color = col( def.color ); m.metalness = def.metalness; m.roughness = def.roughness;
+		if ( def.clearcoat ) { m.clearcoat = def.clearcoat; m.clearcoatRoughness = 0.03; }
+		m.emissiveNode = vec3( col( L[ key ].color ) ).mul( u[ key ] );
+		m.aoNode = ao( def.ao );
+		return m;
+
+	};
+
+	// ---- 1. body paint -------------------------------------------------------------------------------------------------
+	{
+
+		const def = R.Body_Color;
+		const m = new THREE.MeshPhysicalNodeMaterial();
+		m.name = 'Body_Color';
+		u.paintColor = uniform( new THREE.Color() ); u.paintFlop = uniform( new THREE.Color() ); u.paintFlopAmount = uniform( 0 );
+		u.paintMetalness = uniform( 0 ); u.paintRoughness = uniform( 0.5 ); u.paintClearcoat = uniform( 1 ); u.paintClearcoatRoughness = uniform( 0.03 );
+		u.paintFlake = uniform( 0 ); u.paintFlakeScale = uniform( 2600 ); u.paintBaseSpecular = uniform( 1 );
+		const facing = dot( normalViewGeometry, positionViewDirection ).saturate();
+		m.colorNode = mix( u.paintColor, u.paintFlop, pow( facing.oneMinus(), 2.2 ).mul( u.paintFlopAmount ) );
+		// metallic flakes: a random direction per 3D cell in object space tilts the BASE normal only
+		const fp = positionLocal.mul( u.paintFlakeScale );
+		const rnd = vec3( mx_cell_noise_float( fp ), mx_cell_noise_float( fp.add( vec3( 17.3, 5.1, 9.7 ) ) ), mx_cell_noise_float( fp.add( vec3( 3.9, 23.5, 11.1 ) ) ) ).sub( 0.5 ).mul( 2 );
+		const cellsPerPixel = pixel.mul( u.paintFlakeScale ).max( 1 ); // > 1: flakes are sub-pixel -> amplitude falls off like a mip chain would
+		const flakeAmp = u.paintFlake.div( cellsPerPixel );
+		m.normalNode = bumpNormal( rnd.mul( flakeAmp ) );
+		m.clearcoatNormalNode = normalViewGeometry; // the lacquer stays perfectly smooth
+		m.metalnessNode = u.paintMetalness;
+		m.roughnessNode = u.paintRoughness.add( u.paintFlake.sub( flakeAmp ).mul( 0.22 ) ); // unresolved sparkle widens the base lobe instead
+		m.specularIntensityNode = u.paintBaseSpecular; // solid colours: the pigment layer has (almost) no interface of its own under the lacquer
+		m.clearcoatNode = u.paintClearcoat;
+		m.clearcoatRoughnessNode = u.paintClearcoatRoughness;
+		m.aoNode = ao( def.ao );
+		materials.Body_Color = m;
+
+	}
+
+	// ---- 2. glass family: reflections are ADDED on top of an attenuated background ---------------------------------------
+	const glass = ( name ) => {
+
+		const def = R[ name ];
+		const m = new THREE.MeshPhysicalNodeMaterial();
+		m.name = name;
+		m.color = col( def.tint ); m.metalness = 0; m.roughness = def.roughness; m.ior = def.ior;
+		m.transparent = true; m.depthWrite = false;
+		m.blending = THREE.CustomBlending; m.blendEquation = THREE.AddEquation; m.blendSrc = THREE.OneFactor; m.blendDst = THREE.OneMinusSrcAlphaFactor;
+		const facing = dot( normalView, positionViewDirection ).abs();
+		const fresnel = float( 0.04 ).add( float( 0.96 ).mul( pow( facing.oneMinus(), 5 ) ) );
+		m.opacityNode = float( 1 ).sub( float( def.transmission ).mul( fresnel.oneMinus() ) ); // = 1 - T (1 - F)
+		if ( def.emissiveFrom ) m.emissiveNode = vec3( col( L[ def.emissiveFrom ].color ) ).mul( u[ def.emissiveFrom ] ).mul( def.emissiveScale );
+		return m;
+
+	};
+	materials.Glass_Gray = glass( 'Glass_Gray' );
+	materials.Lamp_Glass = glass( 'Lamp_Glass' );
+	materials.Taillight_Lens = glass( 'Taillight_Lens' );
+
+	// ---- 3. plain standard materials ------------------------------------------------------------------------------------
+	const standard = ( name ) => {
+
+		const def = R[ name ];
+		const m = new THREE.MeshStandardNodeMaterial();
+		m.name = name;
+		m.color = col( def.color ); m.metalness = def.metalness; m.roughness = def.roughness;
+		m.aoNode = ao( def.ao, def.aoFloor );
+		return m;
+
+	};
+	for ( const name of [ 'Trim_Black', 'metal_chrome', 'Mirror', 'Headlight_Housing', 'Leather_red', 'metal_gray', 'Display_Glass', 'Gauge_Face' ] ) materials[ name ] = standard( name );
+
+	// ---- 4. lights ------------------------------------------------------------------------------------------------------
+	materials.Projector_Glass = lightMat( 'Projector_Glass', 'headlight', R.Projector_Glass );
+	materials.Turn_Signal_LED = lightMat( 'Turn_Signal_LED', 'drl', R.Turn_Signal_LED );
+	materials.Light_Brake_High = lightMat( 'Light_Brake_High', 'brakeHigh', R.Light_Brake_High );
+	materials.Light_Reverse = lightMat( 'Light_Reverse', 'reverse', R.Light_Reverse );
+	materials.Light_Fog_Rear = lightMat( 'Light_Fog_Rear', 'fogRear', R.Light_Fog_Rear );
+	materials.Taillight_Glass = lightMat( 'Taillight_Glass', 'tail', R.Taillight_Glass );
+	// the indicator material is instanced per side (looked up by MESH name, see applyCarMaterials)
+	materials[ 'Light_Indicator@light_indicator_l' ] = lightMat( 'Light_Indicator', 'indicatorLeft', R.Light_Indicator );
+	materials[ 'Light_Indicator@light_indicator_r' ] = lightMat( 'Light_Indicator', 'indicatorRight', R.Light_Indicator );
+	materials.Light_Indicator = materials[ 'Light_Indicator@light_indicator_l' ];
+
+	// ---- 5. fine-grain surfaces (leather, soft plastics, carpet, alcantara): noise-perturbed normal, fades when sub-pixel --
+	const grain = ( name ) => {
+
+		const def = R[ name ];
+		const m = def.class === 'MeshPhysicalNodeMaterial' ? new THREE.MeshPhysicalNodeMaterial() : new THREE.MeshStandardNodeMaterial();
+		m.name = name;
+		m.color = col( def.color ); m.metalness = def.metalness; m.roughness = def.roughness;
+		if ( def.sheen ) { m.sheen = def.sheen; m.sheenRoughness = def.sheenRoughness; m.sheenColor = col( def.sheenColor ); }
+		const n = mx_noise_vec3( positionLocal.mul( def.grainScale ) );
+		m.normalNode = bumpNormal( n.mul( float( def.grain ).mul( resolved( 1.5 / def.grainScale ) ) ) );
+		m.aoNode = ao( def.ao, def.aoFloor );
+		return m;
+
+	};
+	for ( const name of [ 'Interior_dark', 'Leather', 'Carpet', 'Seat_Fabric' ] ) materials[ name ] = grain( name );
+
+	// ---- 6. carbon fibre: 2x2 twill, rounded tows, lacquered ---------------------------------------------------------------
+	{
+
+		const def = R.Carbon_Fiber;
+		const m = new THREE.MeshPhysicalNodeMaterial();
+		m.name = 'Carbon_Fiber';
+		const c = planar.div( def.tow );
+		const cell = floor( c ), f = fract( c );
+		const warp = step( mod( cell.x.add( cell.y ), 4 ), 1.5 ); // 1 = the tow running along +v is on top
+		const vis = resolved( def.tow, 0.7, 2.5 );
+		const tilt = mix( vec2( 0, f.y.sub( 0.5 ).mul( 2 ) ), vec2( f.x.sub( 0.5 ).mul( 2 ), 0 ), warp ).mul( float( def.tilt ).mul( vis ) );
+		m.colorNode = mix( vec3( col( def.colorA ) ).add( col( def.colorB ) ).mul( 0.5 ), mix( col( def.colorB ), col( def.colorA ), warp ), vis );
+		m.normalNode = bumpNormal( lift( tilt ) );
+		m.clearcoatNormalNode = normalViewGeometry;
+		m.metalness = def.metalness; m.roughness = def.roughness; m.clearcoat = def.clearcoat; m.clearcoatRoughness = def.clearcoatRoughness;
+		m.aoNode = ao( def.ao, def.aoFloor );
+		materials.Carbon_Fiber = m;
+
+	}
+
+	// ---- 7. grille panels: diamond mesh on flat panels ---------------------------------------------------------------------
+	{
+
+		const def = R.Grille_Mesh;
+		const m = new THREE.MeshStandardNodeMaterial();
+		m.name = 'Grille_Mesh';
+		const c = vec2( planar.x.add( planar.y ), planar.x.sub( planar.y ) ).div( def.cell * Math.SQRT2 ); // 45 deg lattice
+		const f = abs( fract( c ).sub( 0.5 ) ).mul( 2 ); // 0 centre of a hole .. 1 on a wire
+		const wire = smoothstep( 1 - def.wire * 1.4, 1 - def.wire * 0.6, max( f.x, f.y ) );
+		const vis = resolved( def.cell, 0.6, 2.0 );
+		const w = mix( float( def.wire * 1.6 ).saturate(), wire, vis ); // average coverage when the mesh is sub-pixel
+		m.colorNode = mix( col( def.holeColor ), col( def.wireColor ), w );
+		m.metalnessNode = w.mul( def.metalness );
+		m.roughnessNode = mix( float( 1 ), float( def.roughness ), w );
+		m.aoNode = ao( def.ao );
+		materials.Grille_Mesh = m;
+
+	}
+
+	// ---- 8. exhaust tips: polished outside, sooty inside (driven by the baked AO) -------------------------------------------
+	{
+
+		const def = R.Exhaust_Tip;
+		const m = new THREE.MeshStandardNodeMaterial();
+		m.name = 'Exhaust_Tip';
+		const clean = smoothstep( 0.18, 0.5, aoBaked );
+		m.colorNode = mix( col( def.sootColor ), col( def.color ), clean );
+		m.roughnessNode = mix( float( def.sootRoughness ), float( def.roughness ), clean );
+		m.metalnessNode = clean.mul( def.metalness );
+		m.aoNode = ao( def.ao );
+		materials.Exhaust_Tip = m;
+
+	}
+
+	// ---- 9. tyres: tread tile + sidewall strip, selected by UV.y -----------------------------------------------------------
+	{
+
+		const def = R.Tires;
+		const m = new THREE.MeshStandardNodeMaterial();
+		m.name = 'Tires';
+		const t = uv();
+		const side = step( t.y, 0.25 ).add( step( 0.75, t.y ) ).saturate(); // 1 on both sidewalls
+		const vS = select( t.y.lessThan( 0.5 ), t.y.mul( 4 ), t.y.oneMinus().mul( 4 ) ).saturate(); // bead 0 .. shoulder 1
+		const sw = texture( textures.tireSidewall, vec2( t.x, vS ) );
+		const tr = texture( textures.tireTread, vec2( t.x.mul( recipe.textures.tireTread.repeatsAround ), t.y.sub( 0.25 ).mul( 2 ) ) );
+		m.normalNode = normalMap( mix( tr.rgb, sw.rgb, side ), mix( float( def.normalScaleTread ), float( def.normalScaleSidewall ), side ) );
+		const cavity = mix( tr.a, float( 1 ), side ); // groove floors are darker
+		const raised = sw.a.sub( 0.5 ).mul( 2 ).saturate().mul( side ); // lettering / ribs
+		m.colorNode = vec3( col( def.color ) ).mul( mix( float( def.grooveDarkening ), float( 1 ), cavity ) );
+		m.roughnessNode = mix( float( def.roughnessTread ), float( def.roughnessSidewall ), side ).sub( raised.mul( 0.12 ) );
+		m.metalness = 0;
+		m.aoNode = ao( def.ao );
+		materials.Tires = m;
+
+	}
+
+	// ---- 10. rims: painted/lacquered alloy; UV.x = machined face mask, UV.y = centre cap mask -------------------------------
+	{
+
+		const def = R.Rim;
+		const m = new THREE.MeshPhysicalNodeMaterial();
+		m.name = 'Rim';
+		u.rimFaceMix = uniform( def.faceMix );
+		const mask = uv();
+		const face = mask.x.mul( u.rimFaceMix ), cap = mask.y;
+		m.colorNode = mix( mix( col( def.color ), col( def.faceColor ), face ), col( def.capColor ), cap );
+		m.roughnessNode = mix( mix( float( def.roughness ), float( def.faceRoughness ), face ), float( def.capRoughness ), cap );
+		m.metalnessNode = mix( float( def.metalness ), float( def.capMetalness ), cap );
+		m.clearcoat = def.clearcoat; m.clearcoatRoughness = def.clearcoatRoughness;
+		m.aoNode = ao( def.ao );
+		materials.Rim = m;
+
+	}
+
+	// ---- 11. brake discs: cross-drilled + brushed, procedural in wheel-local polar coordinates ------------------------------
+	{
+
+		const def = R.Brake_Disc;
+		const m = new THREE.MeshStandardNodeMaterial();
+		m.name = 'Brake_Disc';
+		const p = positionLocal;
+		const r = length( p.yz ), ang = atan( p.z, p.y );
+		const rOut = uv().x; // constant per disc (written by the build)
+		const band = smoothstep( rOut.sub( 0.068 ), rOut.sub( 0.062 ), r ).mul( smoothstep( rOut.sub( 0.004 ), rOut.sub( 0.009 ), r ) );
+		const flat = smoothstep( 0.9, 0.98, normalLocal.x.abs() );
+		const a = ang.div( Math.PI * 2 ).mul( def.holes );
+		let hole = float( 0 );
+		for ( let k = 0; k < 4; k ++ ) {
+
+			const da = fract( a.add( k * 0.27 ) ).sub( 0.5 ).mul( Math.PI * 2 / def.holes ).mul( r );
+			const dr = r.sub( rOut.sub( 0.015 + k * 0.0135 ) );
+			hole = max( hole, smoothstep( 0.0036, 0.0027, sqrt( da.mul( da ).add( dr.mul( dr ) ) ) ) );
+
+		}
+
+		hole = hole.mul( band ).mul( flat ).mul( resolved( 0.006, 0.5, 1.5 ) );
+		const brushed = mx_noise_float( vec3( r.mul( 1500 ), 0.5, 0.5 ) ).mul( band ).mul( flat );
+		m.colorNode = mix( vec3( col( def.color ) ).mul( mix( float( 0.55 ), float( 1 ), band ) ).mul( brushed.mul( 0.25 ).add( 1 ) ), col( def.holeColor ), hole );
+		m.roughnessNode = mix( float( def.roughness ).add( brushed.mul( 0.12 ) ), float( 1 ), hole );
+		m.metalnessNode = mix( float( def.metalness ), float( 0 ), hole );
+		m.aoNode = ao( def.ao );
+		materials.Brake_Disc = m;
+
+	}
+
+	// ---- 12. brake calipers: glossy paint, colour comes with the paint preset ----------------------------------------------
+	{
+
+		const def = R.Brake_Caliper;
+		const m = new THREE.MeshPhysicalNodeMaterial();
+		m.name = 'Brake_Caliper';
+		u.caliperColor = uniform( new THREE.Color( '#e3a800' ) );
+		m.colorNode = u.caliperColor;
+		m.metalness = def.metalness; m.roughness = def.roughness; m.clearcoat = def.clearcoat; m.clearcoatRoughness = def.clearcoatRoughness;
+		m.aoNode = ao( def.ao );
+		materials.Brake_Caliper = m;
+
+	}
+
+	// ---- runtime API ---------------------------------------------------------------------------------------------------
+	function setPaint( name ) {
+
+		const p = recipe.paints[ name ];
+		if ( ! p ) throw new Error( 'unknown paint ' + name );
+		u.paintColor.value.set( p.color ); u.paintFlop.value.set( p.flopColor ); u.paintFlopAmount.value = p.flop;
+		u.paintMetalness.value = p.metalness; u.paintRoughness.value = p.roughness;
+		u.paintClearcoat.value = p.clearcoat; u.paintClearcoatRoughness.value = p.clearcoatRoughness;
+		u.paintFlake.value = p.flake; u.paintFlakeScale.value = p.flakeScale; u.paintBaseSpecular.value = p.baseSpecular ?? 1;
+		u.caliperColor.value.set( p.caliper );
+
+	}
+
+	// state: { drl, head, tail, brake, reverse, fog, indl, indr } booleans / 0..1
+	function setLights( s ) {
+
+		u.drl.value = ( s.drl ? 1 : 0 ) * L.drl.on;
+		u.headlight.value = ( s.head ? 1 : 0 ) * L.headlight.on;
+		u.tail.value = s.brake ? L.tail.brake : ( s.tail || s.head ? L.tail.tail : 0 );
+		u.brakeHigh.value = s.brake ? L.brakeHigh.on : 0;
+		u.reverse.value = s.reverse ? L.reverse.on : 0;
+		u.fogRear.value = s.fog ? L.fogRear.on : 0;
+		u.indicatorLeft.value = s.indl ? L.indicatorLeft.on : 0;
+		u.indicatorRight.value = s.indr ? L.indicatorRight.on : 0;
+
+	}
+
+	setPaint( recipe.defaultPaint );
+	setLights( {} );
+	return { materials, uniforms: u, setPaint, setLights };
+
+}
+
+// Replace the materials of a loaded car (LOD0 or LOD1) by the recipe materials, matched by glTF material name.
+function applyCarMaterials( root, set ) {
+
+	const missing = new Set();
+	root.traverse( ( o ) => {
+
+		if ( ! o.isMesh ) return;
+		const name = o.material.name;
+		const m = set.materials[ `${name}@${o.name}` ] || set.materials[ name ];
+		if ( ! m ) { missing.add( name ); return; }
+		o.material = m;
+		o.castShadow = ! m.transparent;
+		o.receiveShadow = ! m.transparent;
+
+	} );
+	return [ ...missing ];
+
+}
+
+// =====================================================================================================================
+//  PREVIEW SCENE
+// =====================================================================================================================
+const renderer = new THREE.WebGPURenderer( { antialias: true } );
+renderer.setPixelRatio( window.devicePixelRatio );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = { aces: THREE.ACESFilmicToneMapping, agx: THREE.AgXToneMapping, neutral: THREE.NeutralToneMapping }[ str( 'tone', 'aces' ) ] ?? THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = num( 'exposure', 1 );
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.05, 3000 );
+
+const spec = await ( await fetch( '/assets/car/car.json' ) ).json();
+const recipe = spec.materials;
+
+// ---- environment: HDRI for sky + reflections; the sun disc is cut out of the IBL and re-added as a shadow-casting light ----
+const HDRS = {
+	day: '/assets-src/car/_hdri/kloofendal_48d_partly_cloudy_puresky_2k.hdr',
+	sunset: '/assets-src/car/_hdri/qwantani_sunset_puresky_2k.hdr',
+	sunset2: '/assets-src/car/_hdri/kloppenheim_06_puresky_2k.hdr',
+};
+const hdrUrl = HDRS[ str( 'hdr', 'day' ) ] || str( 'hdr' );
+const hdr = await new HDRLoader().setDataType( THREE.FloatType ).loadAsync( hdrUrl );
+const envInfo = ( () => {
+
+	const { data, width: w, height: h } = hdr.image;
+	const clampL = num( 'envclamp', 40 );
+	const env = new Uint16Array( w * h * 4 ), bg = new Uint16Array( w * h * 4 );
+	const sun = new THREE.Vector3(), E = [ 0, 0, 0 ];
+	let sky = [ 0, 0, 0 ], horizon = [ 0, 0, 0 ], horizonN = 0, maxL = 0;
+	const dOmega0 = ( 2 * Math.PI / w ) * ( Math.PI / h );
+	const toHalf = THREE.DataUtils.toHalfFloat;
+	for ( let y = 0; y < h; y ++ ) {
+
+		const v = 1 - ( y + 0.5 ) / h; // data row 0 = top of the panorama (texture.flipY = true)
+		const theta = ( v - 0.5 ) * Math.PI, ct = Math.cos( theta ), st = Math.sin( theta );
+		const dO = dOmega0 * ct;
+		for ( let x = 0; x < w; x ++ ) {
+
+			const i = ( y * w + x ) * 4;
+			const r = data[ i ], g = data[ i + 1 ], b = data[ i + 2 ];
+			const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+			if ( lum > maxL ) maxL = lum;
+			const k = lum > clampL ? clampL / lum : 1;
+			const phi = ( ( x + 0.5 ) / w - 0.5 ) * 2 * Math.PI;
+			const dx = ct * Math.cos( phi ), dy = st, dz = ct * Math.sin( phi );
+			if ( k < 1 && dy > - 0.02 ) { // energy above the clamp = sun -> directional light
+
+				const er = r * ( 1 - k ) * dO, eg = g * ( 1 - k ) * dO, eb = b * ( 1 - k ) * dO;
+				E[ 0 ] += er; E[ 1 ] += eg; E[ 2 ] += eb;
+				const wgt = er + eg + eb;
+				sun.x += dx * wgt; sun.y += dy * wgt; sun.z += dz * wgt;
+
+			}
+
+			if ( dy > 0 ) { sky[ 0 ] += r * k * dO * dy; sky[ 1 ] += g * k * dO * dy; sky[ 2 ] += b * k * dO * dy; }
+			if ( dy > 0.005 && dy < 0.05 ) { horizon[ 0 ] += r * k; horizon[ 1 ] += g * k; horizon[ 2 ] += b * k; horizonN ++; }
+			env[ i ] = toHalf( r * k ); env[ i + 1 ] = toHalf( g * k ); env[ i + 2 ] = toHalf( b * k ); env[ i + 3 ] = toHalf( 1 );
+			bg[ i ] = toHalf( Math.min( r, 60000 ) ); bg[ i + 1 ] = toHalf( Math.min( g, 60000 ) ); bg[ i + 2 ] = toHalf( Math.min( b, 60000 ) ); bg[ i + 3 ] = toHalf( 1 );
+
+		}
+
+	}
+
+	const mk = ( arr ) => { const t = new THREE.DataTexture( arr, w, h, THREE.RGBAFormat, THREE.HalfFloatType ); t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.LinearSRGBColorSpace; t.flipY = true; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter; t.needsUpdate = true; return t; };
+	const hasSun = sun.lengthSq() > 0;
+	if ( hasSun ) sun.normalize(); else sun.set( 0.4, 0.6, 0.5 ).normalize();
+	return { env: mk( env ), bg: mk( bg ), sunDir: sun, sunE: E, skyE: sky, horizon: horizon.map( ( c ) => c / Math.max( 1, horizonN ) ), maxL, hasSun };
+
+} )();
+scene.environment = envInfo.env;
+scene.background = envInfo.bg;
+scene.environmentIntensity = num( 'envI', 1 );
+
+const sunE = envInfo.sunE.map( ( c ) => c * num( 'sunScale', 1 ) );
+const sunMax = Math.max( ...sunE, 1e-6 );
+const sun = new THREE.DirectionalLight( new THREE.Color( sunE[ 0 ] / sunMax, sunE[ 1 ] / sunMax, sunE[ 2 ] / sunMax ), envInfo.hasSun ? sunMax : 0 );
+sun.castShadow = true;
+sun.shadow.mapSize.set( 4096, 4096 );
+sun.shadow.bias = - 0.0002;
+sun.shadow.normalBias = 0.012;
+const sc = sun.shadow.camera;
+sc.left = - 4; sc.right = 4; sc.top = 4; sc.bottom = - 4; sc.near = 1; sc.far = 60;
+sun.position.copy( envInfo.sunDir ).multiplyScalar( 30 );
+scene.add( sun, sun.target );
+scene.fog = new THREE.Fog( new THREE.Color( ...envInfo.horizon ), 80, 900 );
+
+// ---- ground: asphalt-like plane + the baked contact shadow from the three.js example ----
+if ( num( 'ground', 1 ) ) {
+
+	const gm = new THREE.MeshStandardNodeMaterial();
+	const wp = positionLocal.xy; // plane is XY before rotation
+	const coarse = mx_noise_float( vec3( wp.mul( 0.7 ), 0 ) ).mul( 0.5 ).add( 0.5 );
+	const fine = mx_cell_noise_float( vec3( wp.mul( 160 ), 0 ) );
+	const near = smoothstep( 14, 3, positionView.z.negate() );
+	gm.colorNode = vec3( 0.062, 0.062, 0.066 ).mul( coarse.mul( 0.25 ).add( 0.87 ) ).mul( fine.sub( 0.5 ).mul( near ).mul( 0.5 ).add( 1 ) );
+	gm.roughnessNode = float( 0.86 ).add( fine.sub( 0.5 ).mul( near ).mul( 0.2 ) );
+	gm.metalness = 0;
+	const ground = new THREE.Mesh( new THREE.PlaneGeometry( 3000, 3000 ), gm );
+	ground.rotation.x = - Math.PI / 2;
+	ground.receiveShadow = true;
+	scene.add( ground );
+
+}
+
+// ---- car ----
+const draco = new DRACOLoader().setDecoderPath( '/libs/draco/gltf/' );
+const loader = new GLTFLoader().setDRACOLoader( draco );
+const modelParam = str( 'model', 'car.glb' );
+const modelUrl = modelParam.includes( '/' ) ? modelParam : '/assets/car/' + modelParam;
+const tLoad = performance.now();
+const gltf = await loader.loadAsync( modelUrl );
+const loadMs = performance.now() - tLoad;
+const car = gltf.scene;
+const pivot = new THREE.Group();
+pivot.add( car );
+scene.add( pivot );
+
+const texLoader = new THREE.TextureLoader();
+const loadTex = async ( def ) => {
+
+	const t = await texLoader.loadAsync( '/assets/car/' + def.file );
+	t.colorSpace = THREE.NoColorSpace; t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping; t.anisotropy = def.anisotropy || 8;
+	return t;
+
+};
+const textures = { tireTread: await loadTex( recipe.textures.tireTread ), tireSidewall: await loadTex( recipe.textures.tireSidewall ) };
+const set = createCarMaterials( recipe, textures );
+const debug = str( 'debug', 'none' );
+let missing = [];
+if ( debug === 'ao' ) {
+
+	const m = new THREE.MeshBasicNodeMaterial(); m.colorNode = vertexColor().rgb;
+	car.traverse( ( o ) => { if ( o.isMesh ) { o.visible = ! o.material.transparent; o.material = m; } } );
+
+} else if ( debug === 'plain' ) {
+
+	car.traverse( ( o ) => { if ( o.isMesh ) { o.castShadow = ! o.material.transparent; o.receiveShadow = true; o.material.vertexColors = false; } } );
+
+} else missing = applyCarMaterials( car, set );
+
+const hide = str( 'hide', '' ).split( ',' ).filter( Boolean ), only = str( 'only', '' ).split( ',' ).filter( Boolean );
+for ( const n of hide ) { const o = car.getObjectByName( n ); if ( o ) o.visible = false; }
+if ( only.length ) car.traverse( ( o ) => { if ( o.isMesh ) { let keep = false; for ( let p = o; p; p = p.parent ) if ( only.includes( p.name ) ) keep = true; o.visible = keep; } } );
+
+// baked ground shadow, exactly as placed by the three.js example
+if ( num( 'shadow', 1 ) ) {
+
+	const map = await texLoader.loadAsync( '/assets/car/' + spec.groundShadow.file );
+	const mesh = new THREE.Mesh(
+		new THREE.PlaneGeometry( spec.groundShadow.size[ 0 ], spec.groundShadow.size[ 1 ] ),
+		new THREE.MeshBasicMaterial( { map, blending: THREE.MultiplyBlending, toneMapped: false, transparent: true, premultipliedAlpha: true, depthWrite: false } )
+	);
+	mesh.rotation.x = - Math.PI / 2;
+	mesh.position.y = 0.004;
+	mesh.renderOrder = 2;
+	car.add( mesh );
+
+}
+
+// orientation: by default show the car three-quarter lit: nose rotated so the sun comes from front-left
+const sunAz = Math.atan2( envInfo.sunDir.x, envInfo.sunDir.z ); // azimuth of the sun (about Y, from +Z)
+const yawDeg = q.has( 'yaw' ) ? num( 'yaw', 0 ) : THREE.MathUtils.radToDeg( sunAz ) + 180 + num( 'sunrel', - 40 ); // sunrel: azimuth of the sun relative to the nose, negative = sun on the car's left
+pivot.rotation.y = THREE.MathUtils.degToRad( yawDeg );
+pivot.updateMatrixWorld( true );
+
+// ---- views (car space) ----
+const VIEWS = {
+	front34: { pos: [ - 3.5, 1.15, - 5.1 ], target: [ 0.05, 0.56, - 0.35 ], fov: 27 },
+	front34r: { pos: [ 3.5, 1.15, - 5.1 ], target: [ - 0.05, 0.56, - 0.35 ], fov: 27 },
+	rear34: { pos: [ 3.5, 1.3, 5.2 ], target: [ - 0.05, 0.58, 0.3 ], fov: 27 },
+	rear34l: { pos: [ - 3.5, 1.3, 5.2 ], target: [ 0.05, 0.58, 0.3 ], fov: 27 },
+	side: { pos: [ - 8.4, 0.92, 0.05 ], target: [ 0, 0.6, 0.05 ], fov: 19 },
+	sider: { pos: [ 8.4, 0.92, 0.05 ], target: [ 0, 0.6, 0.05 ], fov: 19 },
+	front: { pos: [ 0, 0.85, - 8.5 ], target: [ 0, 0.6, 0 ], fov: 19 },
+	rear: { pos: [ 0, 0.95, 8.5 ], target: [ 0, 0.62, 0 ], fov: 19 },
+	top: { pos: [ 0.001, 9.5, 0.3 ], target: [ 0, 0.5, 0.0 ], fov: 30 },
+	low: { pos: [ - 2.6, 0.35, - 4.6 ], target: [ 0, 0.55, - 0.5 ], fov: 30 },
+	interior: { pos: [ - 1.25, 1.85, 1.35 ], target: [ - 0.12, 0.72, - 0.55 ], fov: 42 },
+	interior2: { pos: [ 0.95, 1.55, 0.75 ], target: [ - 0.25, 0.7, - 0.6 ], fov: 46 },
+	cockpit: { pos: spec.cameras.driverEye.position, target: spec.cameras.driverEye.lookAt, fov: spec.cameras.driverEye.fovSuggested },
+	cockpitdown: { pos: spec.cameras.driverEye.position, target: [ - 0.3, 0.72, - 0.9 ], fov: 70 },
+	bonnet: { pos: spec.cameras.bonnet.position, target: spec.cameras.bonnet.lookAt, fov: spec.cameras.bonnet.fovSuggested },
+	chase: { pos: spec.cameras.chase.position, target: spec.cameras.chase.lookAt, fov: spec.cameras.chase.fovSuggested },
+	wheel: { pos: [ - 2.35, 0.55, - 2.35 ], target: [ - 0.9, 0.37, - 1.15 ], fov: 21 },
+	wheelside: { pos: [ - 2.6, 0.4, - 1.15 ], target: [ - 0.9, 0.36, - 1.15 ], fov: 24 },
+	wheelrear: { pos: [ - 2.3, 0.6, 2.9 ], target: [ - 0.9, 0.37, 1.5 ], fov: 21 },
+	tail: { pos: [ 1.55, 1.05, 3.3 ], target: [ 0.45, 0.72, 2.0 ], fov: 26 },
+	tailclose: { pos: [ 1.3, 1.02, 2.75 ], target: [ 0.77, 0.87, 2.0 ], fov: 26 },
+	head: { pos: [ - 1.55, 1.0, - 3.2 ], target: [ - 0.55, 0.6, - 1.85 ], fov: 26 },
+	exhaust: { pos: [ 0.7, 0.55, 3.3 ], target: [ 0.1, 0.42, 2.2 ], fov: 26 },
+	engine: { pos: [ 0.9, 2.0, 2.9 ], target: [ 0, 0.85, 1.4 ], fov: 34 },
+	dash: { pos: [ 0.05, 1.12, 0.25 ], target: [ - 0.2, 0.74, - 0.7 ], fov: 58 },
+	seats: { pos: [ 0.0, 1.5, - 1.9 ], target: [ 0, 0.7, 0.2 ], fov: 40 },
+};
+
+function setView( v ) {
+
+	if ( typeof v === 'string' ) v = VIEWS[ v ] || VIEWS.front34;
+	camera.fov = v.fov || 30;
+	camera.near = v.near || 0.05; camera.far = 3000;
+	camera.updateProjectionMatrix();
+	camera.position.set( ...v.pos ).applyMatrix4( pivot.matrixWorld );
+	camera.up.set( 0, 1, 0 );
+	camera.lookAt( new THREE.Vector3( ...v.target ).applyMatrix4( pivot.matrixWorld ) );
+
+}
+
+function setPose( { steer = 0, spin = 0, sw = null } = {} ) {
+
+	const s = THREE.MathUtils.degToRad( steer );
+	for ( const w of [ 'fl', 'fr', 'rl', 'rr' ] ) {
+
+		const hub = car.getObjectByName( spec.wheels[ w ].node ), sp = car.getObjectByName( spec.wheels[ w ].spinNode );
+		if ( hub && spec.wheels[ w ].steered ) hub.rotation.y = s;
+		if ( sp ) sp.rotation.x = - THREE.MathUtils.degToRad( spin );
+
+	}
+
+	const wheel = car.getObjectByName( spec.steeringWheel.node );
+	if ( wheel ) wheel.rotation.z = sw !== null ? THREE.MathUtils.degToRad( sw ) : s * 12;
+
+}
+
+function parseLights( s ) { const o = {}; for ( const k of s.split( ',' ).filter( Boolean ) ) o[ k ] = true; return o; }
+
+set.setPaint( str( 'paint', recipe.defaultPaint ) );
+set.setLights( parseLights( str( 'lights', 'drl' ) ) );
+setPose( { steer: num( 'steer', 0 ), spin: num( 'spin', 0 ), sw: q.has( 'sw' ) ? num( 'sw', 0 ) : null } );
+setView( str( 'view', 'front34' ) );
+
+// ---- render ----
+let pipeline = null;
+if ( num( 'bloom', 0 ) ) {
+
+	pipeline = new THREE.RenderPipeline( renderer );
+	const scenePass = pass( scene, camera );
+	const color = scenePass.getTextureNode( 'output' );
+	pipeline.outputNode = color.add( bloom( color, num( 'bloomStrength', 0.35 ), 0.5, 1.0 ) );
+
+}
+
+window.addEventListener( 'resize', () => {
+
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize( window.innerWidth, window.innerHeight );
+
+} );
+
+window.__car = car; window.__scene = scene; window.__camera = camera; window.__renderer = renderer; window.__THREE = THREE; window.__spec = spec; window.__materials = set;
+window.__setView = setView; window.__setPaint = ( n ) => set.setPaint( n ); window.__setLights = ( s ) => set.setLights( typeof s === 'string' ? parseLights( s ) : s ); window.__setPose = setPose;
+
+let frames = 0;
+renderer.setAnimationLoop( () => {
+
+	if ( pipeline ) pipeline.render(); else renderer.render( scene, camera );
+	frames ++;
+	if ( frames === 10 ) {
+
+		let triangles = 0, meshes = 0;
+		const names = [];
+		car.traverse( ( o ) => { if ( o.isMesh && o.geometry.index ) { triangles += o.geometry.index.count / 3; meshes ++; names.push( o.name ); } } );
+		window.__info = {
+			isWebGPU: renderer.backend.isWebGPUBackend === true, model: modelUrl, loadMs: Math.round( loadMs ), triangles, meshes, missingMaterials: missing,
+			sunDir: envInfo.sunDir.toArray().map( ( v ) => + v.toFixed( 3 ) ), sunIrradiance: envInfo.sunE.map( ( v ) => + v.toFixed( 3 ) ), skyIrradiance: envInfo.skyE.map( ( v ) => + v.toFixed( 3 ) ),
+			hdrMaxLuminance: Math.round( envInfo.maxL ), yawDeg: + yawDeg.toFixed( 1 ), names,
+		};
+		window.__ready = true;
+
+	}
+
+} );
+</script>
+</body>
+</html>

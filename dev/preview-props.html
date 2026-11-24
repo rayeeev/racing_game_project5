@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>props preview</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!--
+Props preview (three r187 WebGPURenderer). Reads /assets/props/index.json and shows variants with their LOD nodes.
+
+Query params:
+  index     url of the index.json to show (default /assets/props/index.json)
+  assets    comma-separated asset ids (default: all assets of index.json)
+  variant   only variants whose name contains this substring
+  lod       0 | 1 | both (default 0). "both" puts LOD1 right next to LOD0.
+  layout    row (default) | group  (group = all selected variants on a grid, sorted by placement, + 1.8 m reference box)
+  ref       1 -> add a 1.8 m tall reference box (default 1 for layout=group, else 0)
+  hdr       equirect .hdr for background + lighting (default: RoomEnvironment). The sun direction is taken from the brightest HDR texel.
+  sun       x,y,z direction towards the sun (overrides the HDR estimate); sunI intensity (default 3); sunColor hex; envI (default 1)
+  az, el, dist, fov   camera (deg, deg, distance multiplier, deg); focus = index of the item to frame
+  ground    hex colour of the ground (default 4b4b4d = asphalt grey); ground=none hides it
+  exposure  tone mapping exposure (default 1)
+  side      front -> force FrontSide on every material (to check that back-face culling does not open holes)
+  ao        override aoMapIntensity of every material (0 = baked occlusion off)
+  wire      1 -> wireframe overlay
+  emissive  intensity -> switches on every material flagged "emissive" in index.json (night look), e.g. emissive=6
+  collider  1 -> draw the index.json collider of every variant
+  anchors   1 -> draw wireAnchors / lights positions from index.json
+  alpha     hash | a2c | nomip -> render alpha-tested materials with alphaHash / alphaToCoverage (alphaTest 0) / without mipmaps
+  cutoff    override the alphaTest value of alpha-tested materials
+After load: window.__ready === true, window.__info = { isWebGPU, items:[{asset,variant,lod,triangles,meshes,materials,bbox,size,minY}], errors:[] }
+Helpers:   window.__setCamera(azDeg, elDeg, distMul, focusIndex?)   window.__look(ex,ey,ez, tx,ty,tz, fov?)
+-->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const q = new URLSearchParams( location.search );
+const num = ( k, d ) => ( q.has( k ) ? Number( q.get( k ) ) : d );
+const str = ( k, d ) => ( q.has( k ) ? q.get( k ) : d );
+
+const renderer = new THREE.WebGPURenderer( { antialias: true } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = num( 'exposure', 1 );
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( num( 'fov', 35 ), window.innerWidth / window.innerHeight, 0.01, 5000 );
+const info = { isWebGPU: renderer.backend.isWebGPUBackend === true, items: [], errors: [] };
+
+// ---- environment ----
+let sunDir = new THREE.Vector3( 0.5, 0.8, 0.35 ).normalize();
+const hdrUrl = str( 'hdr', '' );
+if ( hdrUrl ) {
+
+	const tex = await new HDRLoader().loadAsync( hdrUrl );
+	tex.mapping = THREE.EquirectangularReflectionMapping;
+	scene.background = tex;
+	scene.environment = tex;
+	// brightest texel -> sun direction (equirect: u = atan2(z, x) / 2pi + 0.5, v = acos(y) / pi  in three's convention)
+	const { data, width, height } = tex.image;
+	const half = data instanceof Uint16Array;
+	let best = - 1, bi = 0;
+	for ( let i = 0; i < width * height; i ++ ) {
+
+		const r = half ? THREE.DataUtils.fromHalfFloat( data[ i * 4 ] ) : data[ i * 4 ];
+		const g = half ? THREE.DataUtils.fromHalfFloat( data[ i * 4 + 1 ] ) : data[ i * 4 + 1 ];
+		const b = half ? THREE.DataUtils.fromHalfFloat( data[ i * 4 + 2 ] ) : data[ i * 4 + 2 ];
+		const l = r + g + b;
+		if ( l > best ) { best = l; bi = i; }
+
+	}
+
+	const u = ( ( bi % width ) + 0.5 ) / width, v = ( Math.floor( bi / width ) + 0.5 ) / height;
+	// HDRLoader keeps the first row at the top of the image only if flipY is set; equirectUv: uv.y = asin(dir.y)/pi + 0.5
+	const vv = tex.flipY ? 1 - v : v;
+	const phi = ( u - 0.5 ) * Math.PI * 2, theta = ( vv - 0.5 ) * Math.PI;
+	sunDir = new THREE.Vector3( Math.cos( theta ) * Math.cos( phi ), Math.sin( theta ), Math.cos( theta ) * Math.sin( phi ) ).normalize();
+	if ( sunDir.y < 0 ) sunDir.y *= - 1;
+	info.sunFromHdr = sunDir.toArray();
+
+} else {
+
+	const pmrem = new THREE.PMREMGenerator( renderer );
+	scene.environment = pmrem.fromScene( new RoomEnvironment(), 0.04 ).texture;
+	scene.background = new THREE.Color( 0x9aa3ad );
+
+}
+
+if ( q.has( 'sun' ) ) sunDir = new THREE.Vector3( ...q.get( 'sun' ).split( ',' ).map( Number ) ).normalize();
+scene.environmentIntensity = num( 'envI', 1 );
+
+// ---- assets ----
+const index = await ( await fetch( str( 'index', '/assets/props/index.json' ), { cache: 'no-store' } ) ).json();
+const wantAssets = str( 'assets', '' ).split( ',' ).filter( Boolean );
+const wantVariant = str( 'variant', '' );
+const lodMode = str( 'lod', '0' );
+const layout = str( 'layout', 'row' );
+const loader = new GLTFLoader().setMeshoptDecoder( MeshoptDecoder );
+const group = new THREE.Group();
+scene.add( group );
+const items = []; // { object, entry, variant, lod }
+const emissiveI = num( 'emissive', 0 );
+const alphaMode = str( 'alpha', '' );
+
+for ( const asset of index.assets ) {
+
+	if ( wantAssets.length && ! wantAssets.includes( asset.id ) ) continue;
+	let gltf;
+	try {
+
+		gltf = await loader.loadAsync( asset.file + '?t=' + Date.now() );
+
+	} catch ( e ) {
+
+		info.errors.push( `${asset.id}: ${e.message}` );
+		continue;
+
+	}
+
+	const emissiveMats = new Map( ( asset.materials || [] ).filter( ( m ) => m.emissive ).map( ( m ) => [ m.name, m ] ) );
+	// convention checks: LOD nodes are direct children of the scene root with identity transforms
+	for ( const child of gltf.scene.children ) {
+
+		const e = child.matrix.elements;
+		child.updateMatrix();
+		const identity = child.matrix.equals( new THREE.Matrix4() );
+		if ( ! identity ) info.errors.push( `${asset.id}: node ${child.name} is not identity` );
+		if ( ! /_LOD\d$/.test( child.name ) ) info.errors.push( `${asset.id}: unexpected root node ${child.name}` );
+
+	}
+
+	for ( const variant of asset.variants ) {
+
+		if ( wantVariant && ! variant.name.includes( wantVariant ) ) continue;
+		const lodIdx = lodMode === 'both' ? variant.lods.map( ( _, i ) => i ) : [ Math.min( Number( lodMode ), variant.lods.length - 1 ) ];
+		for ( const li of lodIdx ) {
+
+			const src = gltf.scene.getObjectByName( variant.lods[ li ].node );
+			if ( ! src ) { info.errors.push( `${asset.id}: node ${variant.lods[ li ].node} missing` ); continue; }
+			const holder = new THREE.Group();
+			const obj = src.clone();
+			holder.add( obj );
+			let triangles = 0, meshes = 0;
+			const mats = [];
+			obj.traverse( ( o ) => {
+
+				if ( ! o.isMesh ) return;
+				meshes ++;
+				o.castShadow = true; o.receiveShadow = true;
+				triangles += o.geometry.index.count / 3;
+				const m = o.material;
+				mats.push( { name: m.name, side: m.side, alphaTest: m.alphaTest, transparent: m.transparent, map: m.map ? `${m.map.image.width}x${m.map.image.height}` : null, normalMap: !! m.normalMap, aoMap: !! m.aoMap, roughnessMap: !! m.roughnessMap, metalness: m.metalness, roughness: m.roughness } );
+				if ( str( 'side', '' ) === 'front' ) m.side = THREE.FrontSide;
+				if ( q.has( 'ao' ) ) m.aoMapIntensity = num( 'ao', 1 );
+				if ( emissiveI > 0 && emissiveMats.has( m.name ) ) { m.emissive = new THREE.Color( emissiveMats.get( m.name ).emissiveColor || '#ffffff' ); m.emissiveIntensity = emissiveI; }
+				if ( m.alphaTest > 0 && q.has( 'cutoff' ) ) m.alphaTest = num( 'cutoff', 0.5 );
+				if ( m.alphaTest > 0 && alphaMode === 'hash' ) { m.alphaHash = true; m.alphaTest = 0; }
+				if ( m.alphaTest > 0 && alphaMode === 'a2c' ) { m.alphaToCoverage = true; m.alphaTest = 0; }
+				if ( m.alphaTest > 0 && alphaMode === 'nomip' && m.map ) { m.map.minFilter = THREE.LinearFilter; m.map.generateMipmaps = false; m.map.needsUpdate = true; }
+				if ( num( 'wire', 0 ) ) {
+
+					const w = new THREE.LineSegments( new THREE.WireframeGeometry( o.geometry ), new THREE.LineBasicMaterial( { color: 0x00ff66 } ) );
+					o.add( w );
+
+				}
+
+			} );
+			const box = new THREE.Box3().setFromObject( obj );
+			const size = box.getSize( new THREE.Vector3() );
+
+			if ( num( 'collider', 0 ) && variant.collider && variant.collider.type !== 'none' ) {
+
+				const c = variant.collider;
+				const geo = c.type === 'box' ? new THREE.BoxGeometry( c.halfExtents[ 0 ] * 2, c.halfExtents[ 1 ] * 2, c.halfExtents[ 2 ] * 2 ) : new THREE.CylinderGeometry( c.radius, c.radius, c.halfHeight * 2, 24 );
+				const cm = new THREE.LineSegments( new THREE.EdgesGeometry( geo ), new THREE.LineBasicMaterial( { color: 0xff3355 } ) );
+				cm.position.fromArray( c.center );
+				holder.add( cm );
+
+			}
+
+			if ( num( 'anchors', 0 ) ) {
+
+				const pts = [];
+				if ( variant.wireAnchors ) pts.push( ...variant.wireAnchors.upper, ...variant.wireAnchors.lower );
+				for ( const l of variant.lights || [] ) pts.push( l.position );
+				for ( const p of pts ) {
+
+					const s = new THREE.Mesh( new THREE.SphereGeometry( 0.04, 12, 8 ), new THREE.MeshBasicMaterial( { color: 0xff00ff } ) );
+					s.position.fromArray( p );
+					holder.add( s );
+
+				}
+
+				for ( const l of variant.lights || [] ) if ( l.direction ) holder.add( new THREE.ArrowHelper( new THREE.Vector3( ...l.direction ).normalize(), new THREE.Vector3( ...l.position ), 0.5, 0xff00ff ) );
+
+			}
+
+			items.push( { holder, asset, variant, lod: li, box, size } );
+			info.items.push( { asset: asset.id, variant: variant.name, lod: li, triangles, meshes, materials: mats, min: box.min.toArray().map( ( v ) => + v.toFixed( 3 ) ), max: box.max.toArray().map( ( v ) => + v.toFixed( 3 ) ), size: size.toArray().map( ( v ) => + v.toFixed( 3 ) ) } );
+
+		}
+
+	}
+
+}
+
+// ---- layout ----
+const wantRef = num( 'ref', layout === 'group' ? 1 : 0 );
+function refBox() {
+
+	const g = new THREE.Group();
+	const m = new THREE.Mesh( new THREE.BoxGeometry( 0.5, 1.8, 0.25 ), new THREE.MeshStandardMaterial( { color: 0xd8d8d8, roughness: 0.8 } ) );
+	m.position.y = 0.9; m.castShadow = true; m.receiveShadow = true;
+	g.add( m );
+	// 10 cm stripes every 0.5 m so heights can be read off
+	for ( let h = 0.5; h < 1.8; h += 0.5 ) {
+
+		const s = new THREE.Mesh( new THREE.BoxGeometry( 0.51, 0.02, 0.26 ), new THREE.MeshStandardMaterial( { color: 0xcc2222, roughness: 0.8 } ) );
+		s.position.y = h;
+		g.add( s );
+
+	}
+
+	return g;
+
+}
+
+if ( layout === 'group' ) {
+
+	// back row: lake (tallest), middle: roadside, front: paddock (small props). Jetty variants are lowered so that the
+	// ground plane sits at their recommended water line (index.json "waterlineY"); "sink" is applied to everything else.
+	const order = { lake: 0, roadside: 1, paddock: 2 };
+	const rows = [ [], [], [] ];
+	for ( const it of items ) rows[ order[ it.variant.placement ] ?? 2 ].push( it );
+	let z = 0;
+	const maxRow = num( 'rowWidth', 26 );
+	let frontZ = 0;
+	for ( const row of rows ) {
+
+		let x = 0, depth = 0;
+		for ( const it of row ) {
+
+			const gap = 0.45 + Math.min( 0.6, Math.max( it.size.x, it.size.z ) * 0.12 );
+			if ( x > 0 && x + it.size.x > maxRow ) { z += depth + 1.0; x = 0; depth = 0; }
+			it.holder.position.set( x - it.box.min.x, - ( it.variant.waterlineY ?? it.variant.sink ?? 0 ), z - it.box.min.z );
+			x += it.size.x + gap;
+			depth = Math.max( depth, it.size.z );
+			group.add( it.holder );
+
+		}
+
+		frontZ = z;
+		z += depth + 1.4;
+
+	}
+
+	if ( wantRef ) { const r = refBox(); r.position.set( - 1.0, 0, frontZ + 0.3 ); group.add( r ); }
+
+} else {
+
+	let x = 0;
+	if ( wantRef ) { const r = refBox(); r.position.set( - 0.6, 0, 0 ); group.add( r ); }
+	for ( const it of items ) {
+
+		it.holder.position.set( x - it.box.min.x, 0, 0 );
+		x += it.size.x + Math.max( it.size.x, it.size.z ) * 0.2 + 0.1;
+		group.add( it.holder );
+
+	}
+
+}
+
+// ---- lights / ground ----
+const sun = new THREE.DirectionalLight( new THREE.Color( '#' + str( 'sunColor', 'ffffff' ) ), num( 'sunI', 3 ) );
+sun.castShadow = true;
+sun.shadow.mapSize.set( 4096, 4096 );
+sun.shadow.bias = - 0.0004;
+sun.shadow.normalBias = 0.015;
+scene.add( sun );
+scene.add( sun.target );
+
+const all = new THREE.Box3();
+if ( items.length ) all.setFromObject( group ); else all.set( new THREE.Vector3( - 1, 0, - 1 ), new THREE.Vector3( 1, 1, 1 ) );
+if ( layout === 'group' ) all.min.y = 0;
+const allSize = all.getSize( new THREE.Vector3() );
+const allCenter = all.getCenter( new THREE.Vector3() );
+const radius = Math.max( allSize.length() * 0.5, 0.05 );
+sun.target.position.copy( allCenter );
+sun.position.copy( allCenter ).addScaledVector( sunDir, radius * 4 );
+const sc = sun.shadow.camera;
+sc.left = - radius * 1.2; sc.right = radius * 1.2; sc.top = radius * 1.2; sc.bottom = - radius * 1.2;
+sc.near = radius * 0.5; sc.far = radius * 8;
+sc.updateProjectionMatrix();
+
+const groundColor = str( 'ground', '4b4b4d' );
+if ( groundColor !== 'none' ) {
+
+	const ground = new THREE.Mesh( new THREE.PlaneGeometry( Math.max( 60, radius * 40 ), Math.max( 60, radius * 40 ) ), new THREE.MeshStandardMaterial( { color: new THREE.Color( '#' + groundColor ), roughness: 0.92, metalness: 0 } ) );
+	ground.rotation.x = - Math.PI / 2;
+	ground.position.y = num( 'groundY', 0 );
+	ground.receiveShadow = true;
+	scene.add( ground );
+
+}
+
+function setCamera( azDeg, elDeg, distMul = 1, focusIndex = null ) {
+
+	let center = allCenter, r = radius;
+	if ( focusIndex !== null && items[ focusIndex ] ) {
+
+		const b = new THREE.Box3().setFromObject( items[ focusIndex ].holder );
+		center = b.getCenter( new THREE.Vector3() );
+		r = Math.max( b.getSize( new THREE.Vector3() ).length() * 0.5, 0.05 );
+
+	}
+
+	const az = THREE.MathUtils.degToRad( azDeg ), el = THREE.MathUtils.degToRad( elDeg );
+	const fovRad = THREE.MathUtils.degToRad( camera.fov );
+	const fit = r / Math.sin( Math.min( fovRad, 2 * Math.atan( Math.tan( fovRad / 2 ) * camera.aspect ) ) / 2 );
+	const d = fit * 1.08 * distMul;
+	camera.position.set( center.x + d * Math.cos( el ) * Math.sin( az ), center.y + d * Math.sin( el ), center.z + d * Math.cos( el ) * Math.cos( az ) );
+	camera.near = Math.max( d / 500, 0.005 );
+	camera.far = Math.max( d * 60, 200 );
+	camera.updateProjectionMatrix();
+	camera.lookAt( center );
+
+}
+
+setCamera( num( 'az', 35 ), num( 'el', 18 ), num( 'dist', 1 ), q.has( 'focus' ) ? Number( q.get( 'focus' ) ) : null );
+window.__setCamera = setCamera;
+// free camera: eye + target in world coordinates (item i sits at window.__items[i].holder.position)
+window.__look = ( ex, ey, ez, tx, ty, tz, fov ) => {
+
+	if ( fov ) camera.fov = fov;
+	camera.position.set( ex, ey, ez );
+	camera.near = 0.02; camera.far = 2000;
+	camera.updateProjectionMatrix();
+	camera.lookAt( tx, ty, tz );
+
+};
+window.__scene = scene; window.__camera = camera; window.__renderer = renderer; window.__THREE = THREE; window.__items = items;
+
+let frames = 0;
+renderer.setAnimationLoop( () => {
+
+	renderer.render( scene, camera );
+	frames ++;
+	if ( frames === 14 ) { window.__info = info; window.__ready = true; }
+
+} );
+</script>
+</body>
+</html>

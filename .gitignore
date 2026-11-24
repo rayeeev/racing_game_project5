@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# Raw asset downloads (5+ GB). Needed only while assets are still being processed.
+assets-src/
+.DS_Store
+*.log

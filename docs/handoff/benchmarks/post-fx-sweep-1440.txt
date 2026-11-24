@@ -1,0 +1,14 @@
+?fx=pass&knots=40&trees=500                        delta -0.01 [-0.06.. 0.07] base  0.85 fx  0.81 | cpu  0.1-> 0.1 | switch   0.4->  0.4 | passes 3->3 texMB 122  err=0 warn=0
+?fx=msaa4&knots=40&trees=500                       delta  0.14 [ 0.06.. 0.24] base  0.82 fx  0.99 | cpu  0.1-> 0.1 | switch   0.3->  0.4 | passes 3->3 texMB 122  err=0 warn=0
+?fx=pass&scale=0.67&knots=40&trees=500             delta -0.25 [-0.29..-0.22] base  0.81 fx  0.58 | cpu  0.1-> 0.1 | switch   0.4->  0.4 | passes 3->3 texMB 99   err=0 warn=0
+?fx=traa&knots=40&trees=500                        delta  0.69 [ 0.65.. 0.75] base  0.83 fx  1.49 | cpu  0.1-> 0.1 | switch   0.4->  0.4 | passes 3->4 texMB 221  err=0 warn=0
+?fx=taau&scale=0.67&knots=40&trees=500             delta  0.56 [ 0.52.. 0.59] base  0.85 fx  1.37 | cpu  0.1-> 0.2 | switch   0.4->  0.4 | passes 3->4 texMB 208  err=0 warn=0
+?fx=fxaa&knots=40&trees=500                        delta  0.29 [ 0.18.. 0.31] base  0.85 fx  1.04 | cpu  0.1-> 0.1 | switch   0.4->  0.4 | passes 3->4 texMB 164  err=0 warn=0
+?fx=aomul,traa&knots=40&trees=500                  delta  1.45 [ 1.41..  1.6] base  0.81 fx  2.26 | cpu  0.1-> 0.2 | switch   0.4->  0.4 | passes 3->6 texMB 278  err=0 warn=0
+?fx=ao,traa&knots=40&trees=500                     delta  1.58 [ 1.42.. 1.71] base  0.81 fx  2.35 | cpu  0.1-> 0.2 | switch  10.1-> 13.9 | passes 3->6 texMB 250  err=0 warn=0
+?fx=bloom&knots=40&trees=500                       delta  0.33 [ 0.24.. 0.39] base  0.83 fx  1.08 | cpu  0.1-> 0.3 | switch   0.4->  0.6 | passes 3->15 texMB 148  err=0 warn=0
+?fx=aomul,traa,bloom&knots=40&trees=500            delta  1.76 [ 1.71.. 1.77] base  0.84 fx  2.55 | cpu  0.1-> 0.5 | switch   0.4->  0.6 | passes 3->18 texMB 303  err=0 warn=0
+?fx=ao,traa,bloom&knots=40&trees=500               delta  1.92 [  1.8.. 1.95] base  0.89 fx  2.78 | cpu  0.1-> 0.5 | switch  11.2-> 13.3 | passes 3->18 texMB 275  err=0 warn=0
+?fx=ssr&ssrScale=0.5&knots=40&trees=500            delta  1.84 [ 1.36.. 2.18] base  0.83 fx  2.29 | cpu  0.1-> 0.2 | switch   0.4->  0.4 | passes 3->9 texMB 174  err=0 warn=0
+?fx=ssr&knots=40&trees=500                         delta  5.71 [ 3.72.. 8.88] base  0.81 fx  4.64 | cpu  0.1-> 0.2 | switch   0.4->  0.5 | passes 3->9 texMB 244  err=0 warn=0
+?fx=ssgi,traa&knots=40&trees=500                   delta 12.92 [12.57..14.37] base  0.81 fx 13.38 | cpu  0.1-> 0.2 | switch   0.5->  0.7 | passes 3->6 texMB 308  err=0 warn=0

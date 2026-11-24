@@ -1,0 +1,2611 @@
+{
+	"name": "Alpenglow player car",
+	"generatedBy": "tools/assets/car-build.mjs + tools/assets/car-spec.mjs",
+	"files": {
+		"lod0": {
+			"file": "car.glb",
+			"bytes": 1806840,
+			"triangles": 365112,
+			"vertices": 328145,
+			"meshes": 47,
+			"drawCalls": 47,
+			"materials": 30,
+			"compression": "KHR_draco_mesh_compression (position 15 bit, normal 13 bit)"
+		},
+		"lod1": {
+			"file": "car_lod1.glb",
+			"bytes": 270548,
+			"triangles": 34480,
+			"vertices": 37016,
+			"meshes": 16,
+			"drawCalls": 16,
+			"materials": 10,
+			"compression": "KHR_draco_mesh_compression (position 13 bit, normal 10 bit)"
+		},
+		"groundShadow": "car_ground_ao.png",
+		"textures": [
+			"tire_tread_n.png",
+			"tire_sidewall_n.png"
+		]
+	},
+	"license": {
+		"model": "Ferrari 458 Italia",
+		"author": "vicent091036",
+		"authorUrl": "https://sketchfab.com/vicent091036",
+		"source": "https://sketchfab.com/models/57bf6cc56931426e87494f554df1dab6",
+		"sourceStatus": "page no longer online (HTTP 404 on 2026-11-17); licence confirmed from the archived page https://web.archive.org/web/20230422084806/https://sketchfab.com/models/57bf6cc56931426e87494f554df1dab6/embed",
+		"obtainedFrom": "three.js r187 examples/models/gltf/ferrari.glb + ferrari_ao.png (https://github.com/mrdoob/three.js)",
+		"license": "CC BY 4.0",
+		"licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+		"requiredAttribution": "\"Ferrari 458 Italia\" by vicent091036 (https://sketchfab.com/vicent091036), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Modified.",
+		"modifications": "meshes re-grouped by role, brand emblems/scripts removed, tyres rebuilt with UVs, brake calipers added, wheel positions symmetrised, ambient occlusion baked to vertex colours, LOD generated",
+		"trademarkNote": "CC BY covers the 3D model only. The body shape is that of a real production car; emblems and lettering were removed but the design itself may be protected.",
+		"ownTextures": "tire_tread_n.png, tire_sidewall_n.png: generated procedurally by tools/assets/car-textures.mjs (original work, no third-party content)"
+	},
+	"units": "metres",
+	"upAxis": "+Y",
+	"forwardAxis": "-Z",
+	"rightAxis": "+X",
+	"handedness": "right-handed",
+	"forwardNote": "the nose points towards -Z; headlights at z < 0, tail lights at z > 0. Positive yaw (rotation about +Y) and positive steering angle turn LEFT.",
+	"origin": "on the ground plane, midway between the bumpers and on the car centre line (x = 0)",
+	"groundY": 0,
+	"size": {
+		"length": 4.5336,
+		"widthWithMirrors": 2.2571,
+		"widthBody": 1.9485,
+		"height": 1.2359
+	},
+	"bbox": {
+		"min": [
+			-1.1285,
+			0,
+			-2.2668
+		],
+		"max": [
+			1.1285,
+			1.2359,
+			2.2668
+		]
+	},
+	"wheelbase": 2.6506,
+	"trackFront": 1.6612,
+	"trackRear": 1.6348,
+	"wheels": {
+		"fl": {
+			"node": "wheel_fl",
+			"spinNode": "wheel_fl_spin",
+			"position": [
+				-0.8306,
+				0.358,
+				-1.1549
+			],
+			"radius": 0.358,
+			"width": 0.2554,
+			"axleAxisLocal": [
+				1,
+				0,
+				0
+			],
+			"steerAxisLocal": [
+				0,
+				1,
+				0
+			],
+			"originAtWheelCentre": true,
+			"restRotationIsIdentity": true,
+			"tyreBBoxCentreLocal": [
+				0,
+				0,
+				0
+			],
+			"steered": true,
+			"driven": false,
+			"side": "left",
+			"outboardSign": -1,
+			"rimRadius": 0.2827,
+			"rimWidthLocalX": [
+				-0.1338,
+				0.1238
+			],
+			"discRadius": 0.2173,
+			"discLocalX": [
+				-0.0234,
+				0.0092
+			],
+			"meshes": {
+				"tyre": "wheel_fl_tire",
+				"rim": "wheel_fl_rim",
+				"disc": "wheel_fl_disc",
+				"caliper": "wheel_fl_caliper"
+			},
+			"caliperBBoxLocal": {
+				"min": [
+					-0.0839,
+					-0.1376,
+					0.1052
+				],
+				"max": [
+					0.0552,
+					0.1845,
+					0.2341
+				]
+			}
+		},
+		"fr": {
+			"node": "wheel_fr",
+			"spinNode": "wheel_fr_spin",
+			"position": [
+				0.8306,
+				0.358,
+				-1.1549
+			],
+			"radius": 0.358,
+			"width": 0.2554,
+			"axleAxisLocal": [
+				1,
+				0,
+				0
+			],
+			"steerAxisLocal": [
+				0,
+				1,
+				0
+			],
+			"originAtWheelCentre": true,
+			"restRotationIsIdentity": true,
+			"tyreBBoxCentreLocal": [
+				0,
+				0,
+				0
+			],
+			"steered": true,
+			"driven": false,
+			"side": "right",
+			"outboardSign": 1,
+			"rimRadius": 0.2826,
+			"rimWidthLocalX": [
+				-0.1238,
+				0.1338
+			],
+			"discRadius": 0.2163,
+			"discLocalX": [
+				-0.0099,
+				0.0226
+			],
+			"meshes": {
+				"tyre": "wheel_fr_tire",
+				"rim": "wheel_fr_rim",
+				"disc": "wheel_fr_disc",
+				"caliper": "wheel_fr_caliper"
+			},
+			"caliperBBoxLocal": {
+				"min": [
+					-0.0559,
+					-0.1376,
+					0.1044
+				],
+				"max": [
+					0.0831,
+					0.1845,
+					0.2341
+				]
+			}
+		},
+		"rl": {
+			"node": "wheel_rl",
+			"spinNode": "wheel_rl_spin",
+			"position": [
+				-0.8174,
+				0.358,
+				1.4957
+			],
+			"radius": 0.358,
+			"width": 0.2802,
+			"axleAxisLocal": [
+				1,
+				0,
+				0
+			],
+			"steerAxisLocal": [
+				0,
+				1,
+				0
+			],
+			"originAtWheelCentre": true,
+			"restRotationIsIdentity": true,
+			"tyreBBoxCentreLocal": [
+				0,
+				0,
+				0
+			],
+			"steered": false,
+			"driven": true,
+			"side": "left",
+			"outboardSign": -1,
+			"rimRadius": 0.2826,
+			"rimWidthLocalX": [
+				-0.1472,
+				0.1361
+			],
+			"discRadius": 0.2041,
+			"discLocalX": [
+				-0.0384,
+				-0.0076
+			],
+			"meshes": {
+				"tyre": "wheel_rl_tire",
+				"rim": "wheel_rl_rim",
+				"disc": "wheel_rl_disc",
+				"caliper": "wheel_rl_caliper"
+			},
+			"caliperBBoxLocal": {
+				"min": [
+					-0.0909,
+					-0.0982,
+					-0.2241
+				],
+				"max": [
+					0.0324,
+					0.1499,
+					-0.1154
+				]
+			}
+		},
+		"rr": {
+			"node": "wheel_rr",
+			"spinNode": "wheel_rr_spin",
+			"position": [
+				0.8174,
+				0.358,
+				1.4957
+			],
+			"radius": 0.358,
+			"width": 0.2802,
+			"axleAxisLocal": [
+				1,
+				0,
+				0
+			],
+			"steerAxisLocal": [
+				0,
+				1,
+				0
+			],
+			"originAtWheelCentre": true,
+			"restRotationIsIdentity": true,
+			"tyreBBoxCentreLocal": [
+				0,
+				0,
+				0
+			],
+			"steered": false,
+			"driven": true,
+			"side": "right",
+			"outboardSign": 1,
+			"rimRadius": 0.2826,
+			"rimWidthLocalX": [
+				-0.1363,
+				0.1471
+			],
+			"discRadius": 0.204,
+			"discLocalX": [
+				-0.001,
+				0.0296
+			],
+			"meshes": {
+				"tyre": "wheel_rr_tire",
+				"rim": "wheel_rr_rim",
+				"disc": "wheel_rr_disc",
+				"caliper": "wheel_rr_caliper"
+			},
+			"caliperBBoxLocal": {
+				"min": [
+					-0.041,
+					-0.0982,
+					-0.224
+				],
+				"max": [
+					0.0821,
+					0.1499,
+					-0.1154
+				]
+			}
+		}
+	},
+	"wheelAnimation": {
+		"spin": "wheel_xx_spin.rotation.x -= distanceTravelled / radius   (negative rotation.x = rolling forward, towards -Z)",
+		"steer": "wheel_fl.rotation.y = wheel_fr.rotation.y = steerAngle   (radians, positive = left)",
+		"suspension": "wheel_xx.position.y = restY + travel   (restY = wheels.xx.position[1])",
+		"note": "hub nodes (wheel_xx) and spin nodes (wheel_xx_spin) have identity rest rotation and their origin at the wheel centre; the axle is the local X axis."
+	},
+	"steeringWheel": {
+		"node": "steering_wheel",
+		"parentNode": "steering_column",
+		"position": [
+			-0.346,
+			0.7989,
+			-0.3457
+		],
+		"rotationAxisLocal": [
+			0,
+			0,
+			1
+		],
+		"rotationAxisWorld": [
+			0,
+			0.342,
+			0.9397
+		],
+		"columnTiltDeg": 20,
+		"columnQuaternion": [
+			-0.1736,
+			0,
+			0,
+			0.9848
+		],
+		"restRotationIsIdentity": true,
+		"rimDiameter": 0.3697,
+		"bboxLocal": {
+			"min": [
+				-0.1848,
+				-0.1686,
+				-0.1231
+			],
+			"max": [
+				0.1849,
+				0.181,
+				0.0049
+			]
+		},
+		"side": "left (LHD)",
+		"usage": "steering_wheel.rotation.z = +angle turns the wheel counter-clockwise as seen by the driver = steering LEFT (same sign as wheel_f*.rotation.y). Suggested ratio: steering wheel angle = 12 * road-wheel angle, clamp +-450 deg.",
+		"meshes": [
+			"steering_wheel_leather",
+			"steering_wheel_carbon",
+			"steering_wheel_plastic",
+			"steering_wheel_red"
+		]
+	},
+	"lamps": {
+		"headlights": {
+			"mesh": "light_headlight",
+			"material": "Projector_Glass",
+			"direction": [
+				0,
+				0,
+				-1
+			],
+			"left": [
+				-0.6785,
+				0.6087,
+				-1.8557
+			],
+			"right": [
+				0.6746,
+				0.6087,
+				-1.8558
+			],
+			"lensDiameter": 0.0656,
+			"note": "position = centre of the projector lens at its front surface; put SpotLights here pointing along direction (dip ~2 deg)"
+		},
+		"drl": {
+			"mesh": "light_drl",
+			"material": "Turn_Signal_LED",
+			"leftBBox": {
+				"min": [
+					-0.8277,
+					0.6284,
+					-1.7991
+				],
+				"max": [
+					-0.7229,
+					0.7744,
+					-1.4729
+				]
+			},
+			"rightBBox": {
+				"min": [
+					0.7208,
+					0.6284,
+					-1.7991
+				],
+				"max": [
+					0.8258,
+					0.7744,
+					-1.4731
+				]
+			},
+			"ledCount": 40
+		},
+		"tailLights": {
+			"mesh": "light_tail",
+			"material": "Taillight_Glass",
+			"lensMesh": "taillight_lens",
+			"lensMaterial": "Taillight_Lens",
+			"direction": [
+				0,
+				0,
+				1
+			],
+			"left": [
+				-0.7758,
+				0.8754,
+				2.0476
+			],
+			"right": [
+				0.7679,
+				0.8754,
+				2.0467
+			],
+			"diameter": 0.1651
+		},
+		"brakeHigh": {
+			"mesh": "light_brake_high",
+			"material": "Light_Brake_High",
+			"center": [
+				-0.0034,
+				0.9467,
+				2.1316
+			],
+			"size": [
+				0.3993,
+				0.0283,
+				0.0384
+			]
+		},
+		"reverse": {
+			"mesh": "light_reverse",
+			"material": "Light_Reverse",
+			"center": [
+				0.5909,
+				0.4503,
+				2.15
+			],
+			"size": [
+				0.1132,
+				0.084,
+				0.0289
+			],
+			"note": "right-hand lower bumper lamp"
+		},
+		"fogRear": {
+			"mesh": "light_fog",
+			"material": "Light_Fog_Rear",
+			"center": [
+				-0.6083,
+				0.4503,
+				2.1491
+			],
+			"size": [
+				0.1132,
+				0.084,
+				0.0289
+			],
+			"note": "left-hand lower bumper lamp"
+		},
+		"indicators": {
+			"material": "Light_Indicator",
+			"left": {
+				"mesh": "light_indicator_l",
+				"parts": [
+					[
+						-0.7759,
+						0.8751,
+						2.0478
+					],
+					[
+						-0.9579,
+						0.635,
+						-0.7753
+					]
+				]
+			},
+			"right": {
+				"mesh": "light_indicator_r",
+				"parts": [
+					[
+						0.7681,
+						0.8751,
+						2.0469
+					],
+					[
+						0.9559,
+						0.635,
+						-0.7743
+					]
+				]
+			},
+			"note": "each side = fender repeater + LED cluster in the centre of the round tail lamp. Front indicators: blink the DRL strip amber."
+		}
+	},
+	"exhaustTips": {
+		"mesh": "exhaust_tips",
+		"material": "Exhaust_Tip",
+		"direction": [
+			0,
+			0,
+			1
+		],
+		"tips": [
+			{
+				"position": [
+					-0.1136,
+					0.4118,
+					2.2657
+				],
+				"outerDiameter": 0.0853
+			},
+			{
+				"position": [
+					-0.0039,
+					0.4118,
+					2.2668
+				],
+				"outerDiameter": 0.0761
+			},
+			{
+				"position": [
+					0.104,
+					0.4118,
+					2.2657
+				],
+				"outerDiameter": 0.0853
+			}
+		]
+	},
+	"mirrors": {
+		"mesh": "mirror",
+		"material": "Mirror",
+		"parts": [
+			{
+				"center": [
+					-1.0316,
+					0.8612,
+					-0.4219
+				],
+				"size": [
+					0.1723,
+					0.111,
+					0.0843
+				]
+			},
+			{
+				"center": [
+					-0.0072,
+					1.0914,
+					-0.2857
+				],
+				"size": [
+					0.2383,
+					0.0561,
+					0.0322
+				]
+			},
+			{
+				"center": [
+					1.0315,
+					0.8612,
+					-0.4219
+				],
+				"size": [
+					0.1723,
+					0.111,
+					0.0843
+				]
+			}
+		]
+	},
+	"cameras": {
+		"driverEye": {
+			"position": [
+				-0.3535,
+				1.045,
+				0.16
+			],
+			"lookAt": [
+				-0.3535,
+				0.97,
+				-6
+			],
+			"fovSuggested": 62,
+			"near": 0.05,
+			"side": "left (LHD)",
+			"note": "head position of a ~1.78 m driver; steering wheel is on the LEFT. Hide nothing: the interior is fully modelled."
+		},
+		"passengerEye": {
+			"position": [
+				0.3535,
+				1.045,
+				0.16
+			]
+		},
+		"bonnet": {
+			"position": [
+				0,
+				0.98,
+				-0.86
+			],
+			"lookAt": [
+				0,
+				0.86,
+				-8
+			],
+			"fovSuggested": 58,
+			"near": 0.05,
+			"note": "just ahead of the windscreen base, shows the top of the bonnet and both front wings"
+		},
+		"bumper": {
+			"position": [
+				0,
+				0.42,
+				-2.3
+			],
+			"lookAt": [
+				0,
+				0.4,
+				-10
+			],
+			"fovSuggested": 62,
+			"note": "in front of the nose, nothing of the car visible"
+		},
+		"chase": {
+			"position": [
+				0,
+				1.55,
+				6.2
+			],
+			"lookAt": [
+				0,
+				0.75,
+				-1.5
+			],
+			"fovSuggested": 45,
+			"note": "default third-person camera in car space"
+		}
+	},
+	"physics": {
+		"note": "Suggestions. Car space: origin on the ground under the middle of the car, +Y up, nose towards -Z, +X = right.",
+		"chassisBox": {
+			"halfExtents": [
+				0.9592,
+				0.35,
+				2.2368
+			],
+			"center": [
+				0,
+				0.65,
+				0
+			],
+			"note": "covers the body shell from y=0.3 (below wheel-centre height 0.358, above the 0.1164 m ground clearance) to the top of the rear deck; the lower half of the wheels, the splitter/diffuser lips and the mirrors stick out on purpose"
+		},
+		"cabinBox": {
+			"halfExtents": [
+				0.72,
+				0.12,
+				0.42
+			],
+			"center": [
+				0,
+				1.12,
+				-0.42
+			],
+			"note": "optional second collider: windscreen frame / roll-over height"
+		},
+		"centerOfMass": {
+			"position": [
+				0,
+				0.46,
+				0.3824
+			],
+			"note": "estimate: mid-rear engine, 42 % front / 58 % rear static weight distribution, CoG height ~0.46 m"
+		},
+		"massKg": 1535,
+		"massNote": "kerb weight of the real car this model depicts (for reference)",
+		"wheelRadius": 0.358,
+		"wheelbase": 2.6506,
+		"trackFront": 1.6612,
+		"trackRear": 1.6348,
+		"suspensionRestLength": 0.11,
+		"suspensionTravelNote": "visual clearance tyre top -> wheel arch is about 0.06 m front / 0.07 m rear; keep visual bump travel within +-0.05 m",
+		"maxSteerAngleDeg": 33,
+		"groundClearance": 0.1164
+	},
+	"bodyProfile": {
+		"note": "body-paint mesh envelope per 0.2 m slice along Z (yMin/yMax/half width incl. mirrors)",
+		"slices": [
+			{
+				"z": -2.2,
+				"yMin": 0.1937,
+				"yMax": 0.574,
+				"halfWidth": 0.6714
+			},
+			{
+				"z": -2,
+				"yMin": 0.1783,
+				"yMax": 0.6484,
+				"halfWidth": 0.8351
+			},
+			{
+				"z": -1.8,
+				"yMin": 0.1659,
+				"yMax": 0.7309,
+				"halfWidth": 0.9132
+			},
+			{
+				"z": -1.6,
+				"yMin": 0.1603,
+				"yMax": 0.7906,
+				"halfWidth": 0.9624
+			},
+			{
+				"z": -1.4,
+				"yMin": 0.5512,
+				"yMax": 0.8243,
+				"halfWidth": 0.974
+			},
+			{
+				"z": -1.2,
+				"yMin": 0.7196,
+				"yMax": 0.8469,
+				"halfWidth": 0.9748
+			},
+			{
+				"z": -1,
+				"yMin": 0.6539,
+				"yMax": 0.8458,
+				"halfWidth": 0.9742
+			},
+			{
+				"z": -0.8,
+				"yMin": 0.1664,
+				"yMax": 0.8612,
+				"halfWidth": 0.9668
+			},
+			{
+				"z": -0.6,
+				"yMin": 0.1678,
+				"yMax": 1.0029,
+				"halfWidth": 1.0675
+			},
+			{
+				"z": -0.4,
+				"yMin": 0.1705,
+				"yMax": 1.11,
+				"halfWidth": 1.1285
+			},
+			{
+				"z": -0.2,
+				"yMin": 0.1741,
+				"yMax": 1.2359,
+				"halfWidth": 0.9615
+			},
+			{
+				"z": 0,
+				"yMin": 0.1755,
+				"yMax": 0.859,
+				"halfWidth": 0.9615
+			},
+			{
+				"z": 0.2,
+				"yMin": 0.1788,
+				"yMax": 0.8916,
+				"halfWidth": 0.9613
+			},
+			{
+				"z": 0.4,
+				"yMin": 0.1816,
+				"yMax": 0.9319,
+				"halfWidth": 0.9604
+			},
+			{
+				"z": 0.6,
+				"yMin": 0.1832,
+				"yMax": 1.1655,
+				"halfWidth": 0.9604
+			},
+			{
+				"z": 0.8,
+				"yMin": 0.186,
+				"yMax": 1.1453,
+				"halfWidth": 0.9579
+			},
+			{
+				"z": 1,
+				"yMin": 0.1893,
+				"yMax": 1.0851,
+				"halfWidth": 0.9607
+			},
+			{
+				"z": 1.2,
+				"yMin": 0.1915,
+				"yMax": 1.0481,
+				"halfWidth": 0.9637
+			},
+			{
+				"z": 1.4,
+				"yMin": 0.7701,
+				"yMax": 1.0059,
+				"halfWidth": 0.9659
+			},
+			{
+				"z": 1.6,
+				"yMin": 0.7613,
+				"yMax": 0.9946,
+				"halfWidth": 0.9662
+			},
+			{
+				"z": 1.8,
+				"yMin": 0.2202,
+				"yMax": 0.9786,
+				"halfWidth": 0.9651
+			},
+			{
+				"z": 2,
+				"yMin": 0.2302,
+				"yMax": 0.9515,
+				"halfWidth": 0.9444
+			},
+			{
+				"z": 2.2,
+				"yMin": 0.2986,
+				"yMax": 0.9579,
+				"halfWidth": 0.8387
+			}
+		]
+	},
+	"roles": {
+		"bodyPaint": {
+			"meshes": [
+				"body"
+			],
+			"material": "Body_Color"
+		},
+		"glass": {
+			"windscreen": {
+				"meshes": [
+					"glass"
+				],
+				"material": "Glass_Gray"
+			},
+			"lampCovers": {
+				"meshes": [
+					"glass_lamps"
+				],
+				"material": "Lamp_Glass"
+			},
+			"tailLampLens": {
+				"meshes": [
+					"taillight_lens"
+				],
+				"material": "Taillight_Lens"
+			}
+		},
+		"rims": {
+			"meshes": [
+				"wheel_fl_rim",
+				"wheel_fr_rim",
+				"wheel_rl_rim",
+				"wheel_rr_rim"
+			],
+			"material": "Rim",
+			"uvMasks": "TEXCOORD_0.x = 1 on the machined spoke face + outer lip, TEXCOORD_0.y = 1 on the centre cap"
+		},
+		"tires": {
+			"meshes": [
+				"wheel_fl_tire",
+				"wheel_fr_tire",
+				"wheel_rl_tire",
+				"wheel_rr_tire"
+			],
+			"material": "Tires"
+		},
+		"brakeDiscs": {
+			"meshes": [
+				"wheel_fl_disc",
+				"wheel_fr_disc",
+				"wheel_rl_disc",
+				"wheel_rr_disc"
+			],
+			"material": "Brake_Disc"
+		},
+		"brakeCalipers": {
+			"meshes": [
+				"wheel_fl_caliper",
+				"wheel_fr_caliper",
+				"wheel_rl_caliper",
+				"wheel_rr_caliper"
+			],
+			"material": "Brake_Caliper",
+			"note": "children of the hub node (wheel_xx), NOT of wheel_xx_spin: they steer but do not rotate with the wheel"
+		},
+		"headlightLens": {
+			"meshes": [
+				"light_headlight"
+			],
+			"material": "Projector_Glass"
+		},
+		"daytimeRunningLights": {
+			"meshes": [
+				"light_drl"
+			],
+			"material": "Turn_Signal_LED"
+		},
+		"tailLights": {
+			"meshes": [
+				"light_tail"
+			],
+			"material": "Taillight_Glass",
+			"note": "make emissive when braking (plus light_brake_high)"
+		},
+		"brakeLightHigh": {
+			"meshes": [
+				"light_brake_high"
+			],
+			"material": "Light_Brake_High"
+		},
+		"reverseLight": {
+			"meshes": [
+				"light_reverse"
+			],
+			"material": "Light_Reverse"
+		},
+		"rearFogLight": {
+			"meshes": [
+				"light_fog"
+			],
+			"material": "Light_Fog_Rear"
+		},
+		"indicators": {
+			"left": [
+				"light_indicator_l"
+			],
+			"right": [
+				"light_indicator_r"
+			],
+			"material": "Light_Indicator"
+		},
+		"exteriorTrim": {
+			"meshes": [
+				"trim_black",
+				"grille",
+				"chrome",
+				"mirror",
+				"exhaust_tips",
+				"headlight_housing"
+			],
+			"materials": [
+				"Trim_Black",
+				"Grille_Mesh",
+				"metal_chrome",
+				"Mirror",
+				"Exhaust_Tip",
+				"Headlight_Housing"
+			]
+		},
+		"interior": {
+			"group": "interior",
+			"meshes": [
+				"interior_plastic",
+				"interior_leather",
+				"interior_stitching",
+				"interior_carbon",
+				"interior_carpet",
+				"interior_seats",
+				"interior_metal",
+				"interior_display",
+				"interior_gauge"
+			],
+			"materials": [
+				"Interior_dark",
+				"Leather",
+				"Leather_red",
+				"Carbon_Fiber",
+				"Carpet",
+				"Seat_Fabric",
+				"metal_gray",
+				"Display_Glass",
+				"Gauge_Face"
+			]
+		},
+		"steeringWheel": {
+			"node": "steering_wheel",
+			"meshes": [
+				"steering_wheel_leather",
+				"steering_wheel_carbon",
+				"steering_wheel_plastic",
+				"steering_wheel_red"
+			]
+		},
+		"badges": {
+			"meshes": [],
+			"note": "all brand emblems, scripts and shields of the source model were removed in the build (pass --keep-badges to car-build.mjs to keep them as a separate \"badges\" mesh)"
+		}
+	},
+	"groundShadow": {
+		"file": "car_ground_ao.png",
+		"source": "three.js examples/models/gltf/ferrari_ao.png (baked contact shadow / ground AO for this exact model)",
+		"geometry": "PlaneGeometry(0.655 * 4, 1.3 * 4) = 2.62 m (X) x 5.2 m (Z)",
+		"size": [
+			2.62,
+			5.2
+		],
+		"placement": "child of the car root at the origin, rotation.x = -PI/2 (lies on the ground, y = 0); image top = car nose (-Z)",
+		"material": "MeshBasicMaterial({ map, blending: MultiplyBlending, toneMapped: false, transparent: true, premultipliedAlpha: true })",
+		"renderOrder": 2,
+		"notes": [
+			"white = no darkening; it multiplies whatever is below, so it needs no alpha channel",
+			"in r187 WebGPU MultiplyBlending REQUIRES premultipliedAlpha = true",
+			"add depthWrite: false and a small polygonOffset (or y = 0.005) when the road is not perfectly flat; fade it out with speed/height if the car can leave the ground"
+		]
+	},
+	"materials": {
+		"schema": 1,
+		"reference": "dev/preview-car.html -> createCarMaterials()",
+		"conventions": [
+			"Keys of \"byMaterial\" are glTF material names in car.glb / car_lod1.glb. Replace the loaded material of every mesh by the node material built from the entry with the same name.",
+			"Vertex colour (COLOR_0, grey) is baked ambient occlusion = sky visibility. Use it as material.aoNode = mix(1, mix(aoFloor, 1, vertexColor().r), ao); never as albedo (set vertexColors = false). aoFloor (default 0) stands in for light bouncing around inside the cabin.",
+			"All car surfaces exist twice in LOD0 (second copy with reversed winding). Keep every material FrontSide; never use DoubleSide on LOD0.",
+			"Light meshes are driven by emissive only: emissiveNode = emissive colour * intensity(state). Off-state looks come from the base parameters."
+		],
+		"textures": {
+			"tireTread": {
+				"file": "tire_tread_n.png",
+				"size": [
+					256,
+					512
+				],
+				"colorSpace": "linear (NoColorSpace)",
+				"wrapS": "Repeat",
+				"wrapT": "ClampToEdge",
+				"anisotropy": 8,
+				"channels": "RGB = tangent-space normal (OpenGL +Y), A = cavity (1 surface .. 0 groove floor)",
+				"repeatsAround": 64
+			},
+			"tireSidewall": {
+				"file": "tire_sidewall_n.png",
+				"size": [
+					2048,
+					256
+				],
+				"colorSpace": "linear (NoColorSpace)",
+				"wrapS": "Repeat",
+				"wrapT": "ClampToEdge",
+				"anisotropy": 8,
+				"channels": "RGB = tangent-space normal (OpenGL +Y), A = height (0.5 = base, lettering/ribs > 0.5)"
+			},
+			"groundShadow": {
+				"file": "car_ground_ao.png"
+			}
+		},
+		"defaultPaint": "rosso",
+		"paints": {
+			"rosso": {
+				"label": "Deep red (solid)",
+				"color": "#a30b0e",
+				"flopColor": "#4a0306",
+				"flop": 0.5,
+				"metalness": 0,
+				"roughness": 0.6,
+				"baseSpecular": 0.25,
+				"clearcoat": 1,
+				"clearcoatRoughness": 0.035,
+				"flake": 0,
+				"flakeScale": 2600,
+				"caliper": "#e3a800"
+			},
+			"bianco": {
+				"label": "Pearl white (tri-coat)",
+				"color": "#e9e7e0",
+				"flopColor": "#bfc4cf",
+				"flop": 0.5,
+				"metalness": 0.12,
+				"roughness": 0.42,
+				"baseSpecular": 0.6,
+				"clearcoat": 1,
+				"clearcoatRoughness": 0.035,
+				"flake": 0.16,
+				"flakeScale": 3200,
+				"caliper": "#a30d10"
+			},
+			"blu": {
+				"label": "Midnight blue (metallic)",
+				"color": "#0b1d4a",
+				"flopColor": "#02040d",
+				"flop": 0.75,
+				"metalness": 0.72,
+				"roughness": 0.4,
+				"baseSpecular": 1,
+				"clearcoat": 1,
+				"clearcoatRoughness": 0.035,
+				"flake": 0.3,
+				"flakeScale": 2600,
+				"caliper": "#e3a800"
+			},
+			"grigio": {
+				"label": "Graphite grey (metallic)",
+				"color": "#3b3d41",
+				"flopColor": "#0b0c0e",
+				"flop": 0.7,
+				"metalness": 0.78,
+				"roughness": 0.38,
+				"baseSpecular": 1,
+				"clearcoat": 1,
+				"clearcoatRoughness": 0.035,
+				"flake": 0.3,
+				"flakeScale": 2600,
+				"caliper": "#a30d10"
+			},
+			"giallo": {
+				"label": "Yellow (solid)",
+				"color": "#f2b705",
+				"flopColor": "#b46a00",
+				"flop": 0.45,
+				"metalness": 0,
+				"roughness": 0.6,
+				"baseSpecular": 0.25,
+				"clearcoat": 1,
+				"clearcoatRoughness": 0.035,
+				"flake": 0,
+				"flakeScale": 2600,
+				"caliper": "#0b0b0c"
+			}
+		},
+		"lights": {
+			"note": "intensity multiplies the linear emissive colour; values assume ACES/AgX tone mapping at exposure ~1 and an optional bloom threshold of 1.",
+			"headlight": {
+				"material": "Projector_Glass",
+				"mesh": "light_headlight",
+				"color": "#fff3e0",
+				"off": 0,
+				"on": 60
+			},
+			"drl": {
+				"material": "Turn_Signal_LED",
+				"mesh": "light_drl",
+				"color": "#eef3ff",
+				"off": 0,
+				"on": 18,
+				"note": "LED strips in the headlamps; daytime running light. May double as front indicator (amber #ff8a1a, blink)."
+			},
+			"tail": {
+				"material": "Taillight_Glass",
+				"mesh": "light_tail",
+				"color": "#ff1408",
+				"off": 0,
+				"tail": 1.6,
+				"brake": 14,
+				"note": "the mesh to make emissive when braking; \"tail\" level when the lights are on"
+			},
+			"brakeHigh": {
+				"material": "Light_Brake_High",
+				"mesh": "light_brake_high",
+				"color": "#ff1408",
+				"off": 0,
+				"on": 14
+			},
+			"reverse": {
+				"material": "Light_Reverse",
+				"mesh": "light_reverse",
+				"color": "#ffffff",
+				"off": 0,
+				"on": 14
+			},
+			"fogRear": {
+				"material": "Light_Fog_Rear",
+				"mesh": "light_fog",
+				"color": "#ff1408",
+				"off": 0,
+				"on": 12
+			},
+			"indicatorLeft": {
+				"material": "Light_Indicator",
+				"mesh": "light_indicator_l",
+				"color": "#ff8a1a",
+				"off": 0,
+				"on": 16,
+				"note": "clone the material per side"
+			},
+			"indicatorRight": {
+				"material": "Light_Indicator",
+				"mesh": "light_indicator_r",
+				"color": "#ff8a1a",
+				"off": 0,
+				"on": 16
+			}
+		},
+		"byMaterial": {
+			"Body_Color": {
+				"type": "carpaint",
+				"class": "MeshPhysicalNodeMaterial",
+				"paint": "<paints[name]>",
+				"ao": 0.9,
+				"flakeFadeNear": 2.5,
+				"flakeFadeFar": 14,
+				"note": "base layer = pigment (+ metallic flakes: per-cell random normal in object space, faded with distance), colour shifts to flopColor at grazing angles, clearcoat keeps the smooth geometric normal"
+			},
+			"Glass_Gray": {
+				"type": "glass",
+				"class": "MeshPhysicalNodeMaterial",
+				"tint": "#0b1512",
+				"transmission": 0.78,
+				"roughness": 0.02,
+				"ior": 1.52,
+				"ao": 0,
+				"note": "windscreen + wind stop. alpha = 1 - transmission * (1 - fresnel); CustomBlending One / OneMinusSrcAlpha so reflections are added at full strength; depthWrite false"
+			},
+			"Lamp_Glass": {
+				"type": "glass",
+				"class": "MeshPhysicalNodeMaterial",
+				"tint": "#101010",
+				"transmission": 0.93,
+				"roughness": 0.03,
+				"ior": 1.5,
+				"ao": 0,
+				"note": "clear headlamp covers and tail-lamp centre lenses"
+			},
+			"Taillight_Lens": {
+				"type": "glass",
+				"class": "MeshPhysicalNodeMaterial",
+				"tint": "#5a0303",
+				"transmission": 0.42,
+				"roughness": 0.06,
+				"ior": 1.5,
+				"ao": 0,
+				"emissiveFrom": "tail",
+				"emissiveScale": 0.12,
+				"note": "smooth red outer lens of the round tail lamps; the fluted inner part (Taillight_Glass) is the emitter"
+			},
+			"Trim_Black": {
+				"type": "standard",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#232324",
+				"metalness": 0,
+				"roughness": 0.55,
+				"ao": 1,
+				"note": "unpainted exterior plastic: diffuser, splitter, strakes, wipers, arch liners, undertray"
+			},
+			"Grille_Mesh": {
+				"type": "grille",
+				"class": "MeshStandardNodeMaterial",
+				"wireColor": "#2c2c2e",
+				"holeColor": "#030303",
+				"cell": 0.011,
+				"wire": 0.2,
+				"metalness": 0.55,
+				"roughness": 0.45,
+				"ao": 1,
+				"note": "flat panels: procedural diamond mesh (object-space, projected on the dominant axis)"
+			},
+			"metal_chrome": {
+				"type": "standard",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#e6e6e6",
+				"metalness": 1,
+				"roughness": 0.06,
+				"ao": 1
+			},
+			"Mirror": {
+				"type": "standard",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#eef0f2",
+				"metalness": 1,
+				"roughness": 0,
+				"ao": 0,
+				"note": "door mirrors + interior mirror; reflects the environment map only"
+			},
+			"Exhaust_Tip": {
+				"type": "exhaust",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#b9b2a6",
+				"sootColor": "#050505",
+				"metalness": 1,
+				"roughness": 0.2,
+				"sootRoughness": 0.85,
+				"ao": 1,
+				"note": "polished steel; baked AO < 0.45 blends to soot so the inside of the pipes is black"
+			},
+			"Headlight_Housing": {
+				"type": "standard",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#4a4a4d",
+				"metalness": 1,
+				"roughness": 0.3,
+				"ao": 1,
+				"note": "satin dark chrome bezels inside the headlamps"
+			},
+			"Projector_Glass": {
+				"type": "light",
+				"class": "MeshPhysicalNodeMaterial",
+				"color": "#0c0d10",
+				"metalness": 0,
+				"roughness": 0.03,
+				"clearcoat": 1,
+				"light": "headlight",
+				"ao": 0.5
+			},
+			"Turn_Signal_LED": {
+				"type": "light",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#b9bcc2",
+				"metalness": 0.3,
+				"roughness": 0.25,
+				"light": "drl",
+				"ao": 0.5
+			},
+			"Taillight_Glass": {
+				"type": "light",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#5e0505",
+				"metalness": 0,
+				"roughness": 0.22,
+				"light": "tail",
+				"ao": 0.6
+			},
+			"Light_Brake_High": {
+				"type": "light",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#520404",
+				"metalness": 0,
+				"roughness": 0.2,
+				"light": "brakeHigh",
+				"ao": 0.6
+			},
+			"Light_Reverse": {
+				"type": "light",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#c9c9c9",
+				"metalness": 0.2,
+				"roughness": 0.15,
+				"light": "reverse",
+				"ao": 0.6
+			},
+			"Light_Fog_Rear": {
+				"type": "light",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#5e0505",
+				"metalness": 0,
+				"roughness": 0.15,
+				"light": "fogRear",
+				"ao": 0.6
+			},
+			"Light_Indicator": {
+				"type": "light",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#b8b8b8",
+				"metalness": 0.3,
+				"roughness": 0.2,
+				"light": "indicatorLeft|indicatorRight (by mesh)",
+				"ao": 0.6
+			},
+			"Interior_dark": {
+				"type": "grain",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#333334",
+				"metalness": 0,
+				"roughness": 0.62,
+				"grain": 0.05,
+				"grainScale": 1500,
+				"ao": 1,
+				"aoFloor": 0.3,
+				"note": "soft-touch interior plastic"
+			},
+			"Leather": {
+				"type": "grain",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#393837",
+				"metalness": 0,
+				"roughness": 0.46,
+				"grain": 0.13,
+				"grainScale": 650,
+				"ao": 1,
+				"aoFloor": 0.3,
+				"note": "black leather: dashboard, doors, seat bolsters, steering wheel rim"
+			},
+			"Leather_red": {
+				"type": "standard",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#a81010",
+				"metalness": 0,
+				"roughness": 0.6,
+				"ao": 1,
+				"aoFloor": 0.3,
+				"note": "contrast stitching/piping and red buttons"
+			},
+			"Carbon_Fiber": {
+				"type": "carbon",
+				"class": "MeshPhysicalNodeMaterial",
+				"colorA": "#444547",
+				"colorB": "#1c1c1e",
+				"aoFloor": 0.3,
+				"tow": 0.0022,
+				"tilt": 0.35,
+				"metalness": 0.35,
+				"roughness": 0.42,
+				"clearcoat": 1,
+				"clearcoatRoughness": 0.06,
+				"ao": 1,
+				"note": "2x2 twill weave, procedural in object space (dominant-axis projection)"
+			},
+			"Carpet": {
+				"type": "grain",
+				"class": "MeshPhysicalNodeMaterial",
+				"aoFloor": 0.3,
+				"color": "#262627",
+				"metalness": 0,
+				"roughness": 1,
+				"grain": 0.5,
+				"grainScale": 2400,
+				"sheen": 0.6,
+				"sheenRoughness": 0.9,
+				"sheenColor": "#2a2a2a",
+				"ao": 1
+			},
+			"Seat_Fabric": {
+				"type": "grain",
+				"class": "MeshPhysicalNodeMaterial",
+				"aoFloor": 0.3,
+				"color": "#424243",
+				"metalness": 0,
+				"roughness": 0.95,
+				"grain": 0.25,
+				"grainScale": 3000,
+				"sheen": 1,
+				"sheenRoughness": 0.6,
+				"sheenColor": "#5a5a5c",
+				"ao": 1,
+				"note": "Alcantara seat centre panels"
+			},
+			"metal_gray": {
+				"type": "standard",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#a9aaac",
+				"metalness": 1,
+				"roughness": 0.34,
+				"ao": 1,
+				"aoFloor": 0.3,
+				"note": "satin aluminium: pedals, vent bezels, door handles, knobs"
+			},
+			"Display_Glass": {
+				"type": "standard",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#060607",
+				"metalness": 0,
+				"roughness": 0.08,
+				"ao": 0.6,
+				"aoFloor": 0.3,
+				"note": "instrument cluster screens (unlit)"
+			},
+			"Gauge_Face": {
+				"type": "standard",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#e8a500",
+				"metalness": 0,
+				"roughness": 0.5,
+				"ao": 0.8,
+				"aoFloor": 0.3,
+				"note": "rev counter face (no dial markings in the model)"
+			},
+			"Tires": {
+				"type": "tyre",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#373738",
+				"roughnessTread": 0.92,
+				"roughnessSidewall": 0.78,
+				"normalScaleTread": 1,
+				"normalScaleSidewall": 1,
+				"grooveDarkening": 0.3,
+				"ao": 1,
+				"note": "UV.x = once around, UV.y: 0-0.25 outboard sidewall (bead -> shoulder), 0.25-0.75 tread, 0.75-1 inboard sidewall"
+			},
+			"Rim": {
+				"type": "rim",
+				"class": "MeshPhysicalNodeMaterial",
+				"color": "#c2c4c8",
+				"metalness": 1,
+				"roughness": 0.34,
+				"clearcoat": 0.6,
+				"clearcoatRoughness": 0.08,
+				"faceColor": "#e2e4e7",
+				"faceRoughness": 0.2,
+				"faceMix": 0,
+				"capColor": "#0a0a0b",
+				"capMetalness": 0.2,
+				"capRoughness": 0.25,
+				"ao": 1,
+				"note": "UV.x = 1 on the machined spoke face/outer lip (two-tone wheels: raise faceMix), UV.y = 1 on the centre cap"
+			},
+			"Brake_Disc": {
+				"type": "disc",
+				"class": "MeshStandardNodeMaterial",
+				"color": "#3a3a3d",
+				"holeColor": "#020202",
+				"metalness": 0.75,
+				"roughness": 0.42,
+				"holes": 30,
+				"ao": 1,
+				"note": "cross-drilled pattern + radial brushing are procedural in wheel-local polar coordinates; UV = (outer radius, inner radius) constants per disc"
+			},
+			"Brake_Caliper": {
+				"type": "caliper",
+				"class": "MeshPhysicalNodeMaterial",
+				"color": "<paint.caliper>",
+				"metalness": 0,
+				"roughness": 0.42,
+				"clearcoat": 0.8,
+				"clearcoatRoughness": 0.1,
+				"ao": 1
+			}
+		}
+	},
+	"hierarchy": {
+		"lod0": {
+			"car": {
+				"parent": null,
+				"group": true
+			},
+			"exterior": {
+				"parent": "car",
+				"group": true
+			},
+			"interior": {
+				"parent": "car",
+				"group": true
+			},
+			"steering_column": {
+				"parent": "interior",
+				"group": true,
+				"translation": [
+					-0.346,
+					0.7989,
+					-0.3457
+				],
+				"rotation": [
+					-0.1736,
+					0,
+					0,
+					0.9848
+				]
+			},
+			"steering_wheel": {
+				"parent": "steering_column",
+				"group": true
+			},
+			"wheel_fl": {
+				"parent": "car",
+				"group": true,
+				"translation": [
+					-0.8306,
+					0.358,
+					-1.1549
+				]
+			},
+			"wheel_fl_spin": {
+				"parent": "wheel_fl",
+				"group": true
+			},
+			"wheel_fr": {
+				"parent": "car",
+				"group": true,
+				"translation": [
+					0.8306,
+					0.358,
+					-1.1549
+				]
+			},
+			"wheel_fr_spin": {
+				"parent": "wheel_fr",
+				"group": true
+			},
+			"wheel_rl": {
+				"parent": "car",
+				"group": true,
+				"translation": [
+					-0.8174,
+					0.358,
+					1.4957
+				]
+			},
+			"wheel_rl_spin": {
+				"parent": "wheel_rl",
+				"group": true
+			},
+			"wheel_rr": {
+				"parent": "car",
+				"group": true,
+				"translation": [
+					0.8174,
+					0.358,
+					1.4957
+				]
+			},
+			"wheel_rr_spin": {
+				"parent": "wheel_rr",
+				"group": true
+			},
+			"body": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Body_Color",
+				"triangles": 80662,
+				"vertices": 51486,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"glass": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Glass_Gray",
+				"triangles": 780,
+				"vertices": 630,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"glass_lamps": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Lamp_Glass",
+				"triangles": 3336,
+				"vertices": 2376,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"taillight_lens": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Taillight_Lens",
+				"triangles": 13420,
+				"vertices": 18684,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"trim_black": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Trim_Black",
+				"triangles": 36141,
+				"vertices": 35965,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"grille": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Grille_Mesh",
+				"triangles": 1568,
+				"vertices": 1348,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"chrome": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "metal_chrome",
+				"triangles": 4060,
+				"vertices": 5774,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"mirror": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Mirror",
+				"triangles": 252,
+				"vertices": 264,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"exhaust_tips": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Exhaust_Tip",
+				"triangles": 3308,
+				"vertices": 2942,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"headlight_housing": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Headlight_Housing",
+				"triangles": 12624,
+				"vertices": 12460,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"light_headlight": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Projector_Glass",
+				"triangles": 640,
+				"vertices": 404,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"light_drl": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Turn_Signal_LED",
+				"triangles": 1432,
+				"vertices": 1640,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"light_tail": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Taillight_Glass",
+				"triangles": 10924,
+				"vertices": 14084,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"light_brake_high": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Light_Brake_High",
+				"triangles": 868,
+				"vertices": 650,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"light_reverse": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Light_Reverse",
+				"triangles": 270,
+				"vertices": 212,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"light_fog": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Light_Fog_Rear",
+				"triangles": 270,
+				"vertices": 212,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"light_indicator_l": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Light_Indicator",
+				"triangles": 2888,
+				"vertices": 2868,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"light_indicator_r": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Light_Indicator",
+				"triangles": 2888,
+				"vertices": 2868,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"interior_plastic": {
+				"parent": "interior",
+				"mesh": true,
+				"material": "Interior_dark",
+				"triangles": 38306,
+				"vertices": 38102,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"interior_leather": {
+				"parent": "interior",
+				"mesh": true,
+				"material": "Leather",
+				"triangles": 21960,
+				"vertices": 20390,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"interior_stitching": {
+				"parent": "interior",
+				"mesh": true,
+				"material": "Leather_red",
+				"triangles": 3394,
+				"vertices": 3694,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"interior_carbon": {
+				"parent": "interior",
+				"mesh": true,
+				"material": "Carbon_Fiber",
+				"triangles": 10904,
+				"vertices": 9124,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"interior_carpet": {
+				"parent": "interior",
+				"mesh": true,
+				"material": "Carpet",
+				"triangles": 524,
+				"vertices": 498,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"interior_seats": {
+				"parent": "interior",
+				"mesh": true,
+				"material": "Seat_Fabric",
+				"triangles": 1632,
+				"vertices": 1320,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"interior_metal": {
+				"parent": "interior",
+				"mesh": true,
+				"material": "metal_gray",
+				"triangles": 3688,
+				"vertices": 4108,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"interior_display": {
+				"parent": "interior",
+				"mesh": true,
+				"material": "Display_Glass",
+				"triangles": 8,
+				"vertices": 16,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"interior_gauge": {
+				"parent": "interior",
+				"mesh": true,
+				"material": "Gauge_Face",
+				"triangles": 122,
+				"vertices": 120,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"steering_wheel_leather": {
+				"parent": "steering_wheel",
+				"mesh": true,
+				"material": "Leather",
+				"triangles": 8144,
+				"vertices": 5838,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"steering_wheel_carbon": {
+				"parent": "steering_wheel",
+				"mesh": true,
+				"material": "Carbon_Fiber",
+				"triangles": 5632,
+				"vertices": 4134,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"steering_wheel_plastic": {
+				"parent": "steering_wheel",
+				"mesh": true,
+				"material": "Interior_dark",
+				"triangles": 4309,
+				"vertices": 3574,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"steering_wheel_red": {
+				"parent": "steering_wheel",
+				"mesh": true,
+				"material": "Leather_red",
+				"triangles": 550,
+				"vertices": 492,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"wheel_fl_tire": {
+				"parent": "wheel_fl_spin",
+				"mesh": true,
+				"material": "Tires",
+				"triangles": 4992,
+				"vertices": 2619,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_fl_rim": {
+				"parent": "wheel_fl_spin",
+				"mesh": true,
+				"material": "Rim",
+				"triangles": 13088,
+				"vertices": 13126,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_fl_disc": {
+				"parent": "wheel_fl_spin",
+				"mesh": true,
+				"material": "Brake_Disc",
+				"triangles": 3672,
+				"vertices": 4032,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_fl_caliper": {
+				"parent": "wheel_fl",
+				"mesh": true,
+				"material": "Brake_Caliper",
+				"triangles": 728,
+				"vertices": 759,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"wheel_fr_tire": {
+				"parent": "wheel_fr_spin",
+				"mesh": true,
+				"material": "Tires",
+				"triangles": 4992,
+				"vertices": 2619,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_fr_rim": {
+				"parent": "wheel_fr_spin",
+				"mesh": true,
+				"material": "Rim",
+				"triangles": 13088,
+				"vertices": 13126,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_fr_disc": {
+				"parent": "wheel_fr_spin",
+				"mesh": true,
+				"material": "Brake_Disc",
+				"triangles": 3672,
+				"vertices": 4032,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_fr_caliper": {
+				"parent": "wheel_fr",
+				"mesh": true,
+				"material": "Brake_Caliper",
+				"triangles": 728,
+				"vertices": 759,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"wheel_rl_tire": {
+				"parent": "wheel_rl_spin",
+				"mesh": true,
+				"material": "Tires",
+				"triangles": 4992,
+				"vertices": 2619,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_rl_rim": {
+				"parent": "wheel_rl_spin",
+				"mesh": true,
+				"material": "Rim",
+				"triangles": 13088,
+				"vertices": 13146,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_rl_disc": {
+				"parent": "wheel_rl_spin",
+				"mesh": true,
+				"material": "Brake_Disc",
+				"triangles": 3672,
+				"vertices": 4032,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_rl_caliper": {
+				"parent": "wheel_rl",
+				"mesh": true,
+				"material": "Brake_Caliper",
+				"triangles": 572,
+				"vertices": 602,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"wheel_rr_tire": {
+				"parent": "wheel_rr_spin",
+				"mesh": true,
+				"material": "Tires",
+				"triangles": 4992,
+				"vertices": 2619,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_rr_rim": {
+				"parent": "wheel_rr_spin",
+				"mesh": true,
+				"material": "Rim",
+				"triangles": 13088,
+				"vertices": 13144,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_rr_disc": {
+				"parent": "wheel_rr_spin",
+				"mesh": true,
+				"material": "Brake_Disc",
+				"triangles": 3672,
+				"vertices": 4032,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_rr_caliper": {
+				"parent": "wheel_rr",
+				"mesh": true,
+				"material": "Brake_Caliper",
+				"triangles": 572,
+				"vertices": 602,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			}
+		},
+		"lod1": {
+			"car": {
+				"parent": null,
+				"group": true
+			},
+			"exterior": {
+				"parent": "car",
+				"group": true
+			},
+			"interior": {
+				"parent": "car",
+				"group": true
+			},
+			"steering_column": {
+				"parent": "interior",
+				"group": true,
+				"translation": [
+					-0.346,
+					0.7989,
+					-0.3457
+				],
+				"rotation": [
+					-0.1736,
+					0,
+					0,
+					0.9848
+				]
+			},
+			"steering_wheel": {
+				"parent": "steering_column",
+				"group": true
+			},
+			"wheel_fl": {
+				"parent": "car",
+				"group": true,
+				"translation": [
+					-0.8306,
+					0.358,
+					-1.1549
+				]
+			},
+			"wheel_fl_spin": {
+				"parent": "wheel_fl",
+				"group": true
+			},
+			"wheel_fr": {
+				"parent": "car",
+				"group": true,
+				"translation": [
+					0.8306,
+					0.358,
+					-1.1549
+				]
+			},
+			"wheel_fr_spin": {
+				"parent": "wheel_fr",
+				"group": true
+			},
+			"wheel_rl": {
+				"parent": "car",
+				"group": true,
+				"translation": [
+					-0.8174,
+					0.358,
+					1.4957
+				]
+			},
+			"wheel_rl_spin": {
+				"parent": "wheel_rl",
+				"group": true
+			},
+			"wheel_rr": {
+				"parent": "car",
+				"group": true,
+				"translation": [
+					0.8174,
+					0.358,
+					1.4957
+				]
+			},
+			"wheel_rr_spin": {
+				"parent": "wheel_rr",
+				"group": true
+			},
+			"body": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Body_Color",
+				"triangles": 12999,
+				"vertices": 10183,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"glass": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Glass_Gray",
+				"triangles": 495,
+				"vertices": 535,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"trim_black": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Trim_Black",
+				"triangles": 4999,
+				"vertices": 7373,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"chrome": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "metal_chrome",
+				"triangles": 417,
+				"vertices": 687,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"light_headlight": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Projector_Glass",
+				"triangles": 220,
+				"vertices": 280,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"light_tail": {
+				"parent": "exterior",
+				"mesh": true,
+				"material": "Taillight_Glass",
+				"triangles": 420,
+				"vertices": 587,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"interior_plastic": {
+				"parent": "interior",
+				"mesh": true,
+				"material": "Interior_dark",
+				"triangles": 4398,
+				"vertices": 6201,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"steering_wheel_leather": {
+				"parent": "steering_wheel",
+				"mesh": true,
+				"material": "Leather",
+				"triangles": 300,
+				"vertices": 387,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"COLOR_0"
+				]
+			},
+			"wheel_fl_tire": {
+				"parent": "wheel_fl_spin",
+				"mesh": true,
+				"material": "Tires",
+				"triangles": 560,
+				"vertices": 319,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_fl_rim": {
+				"parent": "wheel_fl_spin",
+				"mesh": true,
+				"material": "Rim",
+				"triangles": 2010,
+				"vertices": 2365,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_fr_tire": {
+				"parent": "wheel_fr_spin",
+				"mesh": true,
+				"material": "Tires",
+				"triangles": 560,
+				"vertices": 319,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_fr_rim": {
+				"parent": "wheel_fr_spin",
+				"mesh": true,
+				"material": "Rim",
+				"triangles": 1982,
+				"vertices": 2370,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_rl_tire": {
+				"parent": "wheel_rl_spin",
+				"mesh": true,
+				"material": "Tires",
+				"triangles": 560,
+				"vertices": 319,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_rl_rim": {
+				"parent": "wheel_rl_spin",
+				"mesh": true,
+				"material": "Rim",
+				"triangles": 2004,
+				"vertices": 2362,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_rr_tire": {
+				"parent": "wheel_rr_spin",
+				"mesh": true,
+				"material": "Tires",
+				"triangles": 560,
+				"vertices": 319,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			},
+			"wheel_rr_rim": {
+				"parent": "wheel_rr_spin",
+				"mesh": true,
+				"material": "Rim",
+				"triangles": 1996,
+				"vertices": 2410,
+				"attributes": [
+					"POSITION",
+					"NORMAL",
+					"TEXCOORD_0",
+					"COLOR_0"
+				]
+			}
+		}
+	},
+	"lod1Notes": "same node names for everything that is animated (wheel_xx, wheel_xx_spin, steering_column, steering_wheel) and for the role meshes that still exist; one layer of triangles only (use shadowSide = DoubleSide when it is used as a shadow caster); tyres keep their UV layout, rims keep the UV masks.",
+	"build": {
+		"droppedBadges": {
+			"tris": 11428,
+			"parts": 41,
+			"kinds": [
+				"front emblem",
+				"rear emblem",
+				"rear deck script",
+				"dashboard model script",
+				"side script",
+				"nose badge frame",
+				"fender shield frame",
+				"front emblem bracket",
+				"side script backing",
+				"nose badge plate -> body-colour blank",
+				"fender shield plate -> body-colour blank"
+			]
+		},
+		"caliper": {
+			"fl": {
+				"thetaCentreDeg": 82,
+				"halfSpanDeg": 43.99999999999999,
+				"outboard": [
+					-0.05521964645385742,
+					0.07936692810058593
+				],
+				"radial": [
+					0.13930027273557544,
+					0.2341378854686773
+				],
+				"spokeBack": 0.10731321573257446,
+				"barrelR": 0.2381378854686773,
+				"pistons": 3,
+				"direction": "behind the axle (+Z)"
+			},
+			"fr": {
+				"thetaCentreDeg": 82,
+				"halfSpanDeg": 43.99999999999999,
+				"outboard": [
+					-0.05589103317260742,
+					0.07856673574447631
+				],
+				"radial": [
+					0.13830731020029452,
+					0.23413772547515865
+				],
+				"spokeBack": 0.10731589794158936,
+				"barrelR": 0.23813772547515866,
+				"pistons": 3,
+				"direction": "behind the axle (+Z)"
+			},
+			"rl": {
+				"thetaCentreDeg": -82,
+				"halfSpanDeg": 34,
+				"outboard": [
+					-0.032355048656463624,
+					0.08641507434844971
+				],
+				"radial": [
+					0.13808150855430854,
+					0.22408150855430853
+				],
+				"spokeBack": 0.10931384563446045,
+				"barrelR": 0.2381376015043862,
+				"pistons": 2,
+				"direction": "ahead of the axle (-Z)"
+			},
+			"rr": {
+				"thetaCentreDeg": -82,
+				"halfSpanDeg": 34,
+				"outboard": [
+					-0.041020848751068116,
+					0.07762565422058106
+				],
+				"radial": [
+					0.1380446026718403,
+					0.2240446026718403
+				],
+				"spokeBack": 0.10917997360229492,
+				"barrelR": 0.23815587394756482,
+				"pistons": 2,
+				"direction": "ahead of the axle (-Z)"
+			}
+		},
+		"sourceWheelCentres": {
+			"fl": [
+				-0.8375,
+				0.358,
+				-1.1553
+			],
+			"fr": [
+				0.8237,
+				0.3607,
+				-1.1545
+			],
+			"rl": [
+				-0.8158,
+				0.358,
+				1.495
+			],
+			"rr": [
+				0.819,
+				0.358,
+				1.4963
+			]
+		}
+	},
+	"measuredSeat": {
+		"driverSeatInsertBBox": {
+			"min": [
+				-0.5844,
+				0.2295,
+				0.0802
+			],
+			"max": [
+				-0.1226,
+				1.0612,
+				0.323
+			]
+		}
+	}
+}

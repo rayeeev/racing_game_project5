@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crib t08 - water / planar reflection</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!--
+mode = water (WaterMesh) | water2 (Water2Mesh) | reflector (planar mirror on a standard material) | lake (custom recipe)
+pipeline=1  render through RenderPipeline with a pre-pass + scene pass (to count reflection renders)
+bounces=0   reflector( { bounces: false } )   (reflector + lake modes)
+shadowOnce=1  sun.shadow.autoUpdate = false + needsUpdate once per frame
+-->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import {
+	pass, mrt, output, velocity, reflector, texture, uv, vec2, vec3, vec4, float, color, uniform, mix, time, positionWorld, positionView, cameraPosition, cameraNear, cameraFar,
+	normalWorld, normalView, screenUV, viewportDepthTexture, viewportSharedTexture, viewportSafeUV, perspectiveDepthToViewZ, TBNViewMatrix, saturate, pow, dot, normalize
+} from 'three/tsl';
+import { WaterMesh } from 'three/addons/objects/WaterMesh.js';
+import { WaterMesh as Water2Mesh } from 'three/addons/objects/Water2Mesh.js';   // NOTE: both files export a class called WaterMesh
+import { SkyMesh } from 'three/addons/objects/SkyMesh.js';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
+import { report, str, flag, checkerTexture } from './_common.js';
+
+const mode = str( 'mode', 'water' );
+const info = { mode };
+const renderer = new THREE.WebGPURenderer( { antialias: ! flag( 'pipeline' ), alpha: false } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.35;
+renderer.shadowMap.enabled = true;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.5, 6000 );
+camera.position.set( 0, 6, 34 );
+camera.lookAt( 0, 3, 0 );
+
+// sky + environment
+const sunDir = new THREE.Vector3().setFromSphericalCoords( 1, THREE.MathUtils.degToRad( 90 - 14 ), THREE.MathUtils.degToRad( 160 ) );
+const sky = new SkyMesh();
+sky.scale.setScalar( 5000 );
+sky.turbidity.value = 6; sky.rayleigh.value = 1.6; sky.mieCoefficient.value = 0.005; sky.mieDirectionalG.value = 0.8;
+sky.cloudCoverage.value = 0.35;
+sky.sunPosition.value.copy( sunDir );
+const pmrem = new THREE.PMREMGenerator( renderer );
+const envScene = new THREE.Scene();
+envScene.add( sky );
+scene.environment = pmrem.fromScene( envScene ).texture;
+pmrem.dispose();
+scene.add( sky );
+
+const sun = new THREE.DirectionalLight( 0xffd9b0, 10 );
+sun.position.copy( sunDir ).multiplyScalar( 100 );
+sun.castShadow = true;
+sun.shadow.mapSize.set( 2048, 2048 );
+Object.assign( sun.shadow.camera, { left: - 60, right: 60, top: 60, bottom: - 60, near: 1, far: 300 } );
+sun.shadow.bias = - 0.0005;
+sun.shadow.normalBias = 0.05;
+if ( flag( 'shadowOnce' ) ) sun.shadow.autoUpdate = false;
+scene.add( sun );
+
+// lake bed (bowl) + shore + objects
+const bedTex = checkerTexture( 256, 8, '#8a8068', '#7b735e' );
+bedTex.repeat.set( 30, 30 );
+const bed = new THREE.Mesh( new THREE.PlaneGeometry( 600, 600, 128, 128 ), new THREE.MeshStandardMaterial( { map: bedTex, roughness: 0.95 } ) );
+bed.rotation.x = - Math.PI / 2;
+{
+
+	// radial depth profile: shore at r > 60 (rising), 5 m deep in the middle
+	const p = bed.geometry.attributes.position;
+	for ( let i = 0; i < p.count; i ++ ) { const r = Math.hypot( p.getX( i ), p.getY( i ) ); p.setZ( i, r > 60 ? 1 + ( r - 60 ) * 0.06 : 1 - 6 * Math.cos( r / 60 * Math.PI / 2 ) ); }
+	bed.geometry.computeVertexNormals();
+
+}
+
+bed.receiveShadow = true;
+scene.add( bed );
+
+const rockMat = new THREE.MeshStandardMaterial( { color: 0x8b8d90, roughness: 0.85, flatShading: true } );
+const things = [];
+for ( let i = 0; i < 9; i ++ ) {
+
+	const m = new THREE.Mesh( new THREE.DodecahedronGeometry( 2 + ( i % 3 ), 0 ), rockMat );
+	m.position.set( - 24 + i * 6, 1.2 + ( i % 2 ), - 6 - ( i % 4 ) * 5 );
+	m.castShadow = m.receiveShadow = true;
+	scene.add( m );
+	things.push( m );
+
+}
+
+const post = new THREE.Mesh( new THREE.CylinderGeometry( 0.4, 0.4, 14, 16 ), new THREE.MeshStandardMaterial( { color: 0xcc3311, roughness: 0.5 } ) );
+post.position.set( 6, 5, 6 );
+post.castShadow = true;
+scene.add( post );
+
+const tl = new THREE.TextureLoader();
+const load = async ( url ) => { const t = await tl.loadAsync( url ); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
+const WATER_Y = 0;
+const waterGeo = new THREE.PlaneGeometry( 600, 600 );
+let water = null, mirror = null;
+
+if ( mode === 'water' ) {
+
+	// ocean style: unlit NodeMaterial, sun glitter + planar reflection (reflector at resolutionScale 0.5), opaque
+	water = new WaterMesh( waterGeo, {
+		waterNormals: await load( './assets/water/waternormals.jpg' ),
+		sunDirection: sunDir.clone(), sunColor: 0xffffff, waterColor: 0x001e0f,
+		distortionScale: 3.7, size: 1, alpha: 1, resolutionScale: 0.5,
+	} );
+	water.rotation.x = - Math.PI / 2;      // the plane's local +Z is the mirror normal
+	water.position.y = WATER_Y;
+	scene.add( water );
+	info.waterUniforms = Object.keys( water ).filter( ( k ) => water[ k ] && water[ k ].isUniformNode );
+
+} else if ( mode === 'water2' ) {
+
+	// flowing water: reflection (reflector, full res) + refraction (viewportSharedTexture), two normal maps, optional flow map
+	water = new Water2Mesh( waterGeo, {
+		normalMap0: await load( './assets/water/Water_1_M_Normal.jpg' ), normalMap1: await load( './assets/water/Water_2_M_Normal.jpg' ),
+		color: 0x99e0ff, scale: 60, flowDirection: new THREE.Vector2( 1, 0.4 ), flowSpeed: 0.03, reflectivity: 0.02,
+	} );
+	water.rotation.x = - Math.PI / 2;
+	water.position.y = WATER_Y;
+	water.renderOrder = Infinity;           // draw last: the refraction copies what is in the framebuffer at that moment
+	scene.add( water );
+	const wn = water.material.colorNode;    // WaterNode with the uniforms
+	wn.reflectivity.value = 0.05;
+	info.water2Uniforms = Object.keys( wn ).filter( ( k ) => wn[ k ] && wn[ k ].isUniformNode );
+
+} else if ( mode === 'reflector' ) {
+
+	// planar reflection as a node: any material can sample it
+	mirror = reflector( { resolutionScale: 0.5, bounces: ! flag( 'bounces0' ) && str( 'bounces', '1' ) !== '0', generateMipmaps: true } );
+	mirror.target.rotateX( - Math.PI / 2 );  // mirror normal = +Z of `target` -> +Y
+	mirror.target.position.y = WATER_Y;
+	scene.add( mirror.target );
+	const m = new THREE.MeshStandardNodeMaterial( { color: 0x0a1418, roughness: 0.2, metalness: 0 } );
+	const fres = saturate( dot( cameraPosition.sub( positionWorld ).normalize(), vec3( 0, 1, 0 ) ) ).oneMinus().pow( 4 ).mul( 0.96 ).add( 0.04 );
+	m.emissiveNode = mirror.rgb.mul( fres );   // mirror = TextureNode( reflection RT, screenUV flipped in x )
+	water = new THREE.Mesh( waterGeo, m );
+	water.rotation.x = - Math.PI / 2;
+	water.position.y = WATER_Y;
+	scene.add( water );
+
+} else if ( mode === 'lake' ) {
+
+	// custom lake: depth based colour/opacity + refraction + planar reflection + animated normals
+	const n0 = await load( './assets/water/Water_1_M_Normal.jpg' ), n1 = await load( './assets/water/Water_2_M_Normal.jpg' );
+	mirror = reflector( { resolutionScale: 0.5, bounces: str( 'bounces', '0' ) !== '0' } );
+	mirror.target.rotateX( - Math.PI / 2 );
+	mirror.target.position.y = WATER_Y;
+	scene.add( mirror.target );
+
+	const wuv = positionWorld.xz.mul( 0.08 );
+	const s0 = texture( n0, wuv.add( vec2( time.mul( 0.02 ), time.mul( 0.012 ) ) ) ).xyz.mul( 2 ).sub( 1 );
+	const s1 = texture( n1, wuv.mul( 1.7 ).sub( vec2( time.mul( 0.015 ), time.mul( - 0.02 ) ) ) ).xyz.mul( 2 ).sub( 1 );
+	const nTS = vec3( s0.xy.add( s1.xy ).mul( 0.35 ), s0.z.mul( s1.z ) ).normalize();   // tangent space (z up)
+	const nWorld = vec3( nTS.x, nTS.z, nTS.y.negate() ).normalize();                     // plane lies in XZ: tangent=+X, bitangent=-Z
+
+	const sceneViewZ = perspectiveDepthToViewZ( viewportDepthTexture( screenUV ), cameraNear, cameraFar );
+	const waterDepth = positionView.z.sub( sceneViewZ ).max( 0 );                        // view-space thickness in metres
+	const distort = nTS.xy.mul( 0.03 ).mul( waterDepth.smoothstep( 0, 1.5 ) );           // no distortion at the shore line
+	const refraction = viewportSharedTexture( viewportSafeUV( screenUV.add( distort ) ) ).rgb;
+	const absorb = waterDepth.mul( 0.35 ).negate().exp();                                // Beer-Lambert
+	const under = mix( color( 0x0b3a46 ), refraction.mul( color( 0xa8e6da ) ), absorb );
+
+	const viewDir = cameraPosition.sub( positionWorld ).normalize();
+	const fresnel = float( 1 ).sub( saturate( dot( viewDir, nWorld ) ) ).pow( 5 ).mul( 0.98 ).add( 0.02 );
+	const refl = texture( mirror, mirror.uvNode.add( nTS.xy.mul( 0.04 ) ) ).rgb;          // re-sample the reflector with distorted uv
+
+	const m = new THREE.MeshBasicNodeMaterial( { transparent: true, depthWrite: false } );
+	m.colorNode = mix( under, refl, fresnel );
+	m.opacityNode = waterDepth.smoothstep( 0.0, 0.12 );                                   // soft shore line
+	water = new THREE.Mesh( waterGeo, m );
+	water.rotation.x = - Math.PI / 2;
+	water.position.y = WATER_Y;
+	water.renderOrder = 10;
+	scene.add( water );
+
+}
+
+let pipeline = null;
+if ( flag( 'pipeline' ) ) {
+
+	pipeline = new THREE.RenderPipeline( renderer );
+	const prePass = pass( scene, camera );                         // e.g. the AO pre-pass (renders transparent objects too unless .transparent = false)
+	if ( flag( 'preOpaque' ) ) prePass.transparent = false;
+	prePass.setMRT( mrt( { output: vec4( 0 ), velocity } ) );
+	const scenePass = pass( scene, camera );
+	pipeline.outputNode = traa( scenePass, prePass.getTextureNode( 'depth' ), prePass.getTextureNode( 'velocity' ), camera );
+
+}
+
+let frame = 0, t = 0;
+renderer.setAnimationLoop( () => {
+
+	t += 1 / 30;
+	things.forEach( ( m, i ) => { m.rotation.y = t * 0.2 + i; } );
+	if ( flag( 'shadowOnce' ) ) sun.shadow.needsUpdate = true;      // exactly one shadow render per frame, whatever the number of cameras
+	if ( pipeline ) pipeline.render(); else renderer.render( scene, camera );
+	if ( ++ frame === 40 ) {
+
+		info.render = { frameCalls: renderer.info.render.frameCalls, drawCalls: renderer.info.render.drawCalls, triangles: Math.round( renderer.info.render.triangles ) };
+		info.memory = { renderTargets: renderer.info.memory.renderTargets, texturesMB: Math.round( renderer.info.memory.texturesSize / 1048576 ) };
+		report( info );
+
+	}
+
+} );
+</script>
+</body>
+</html>

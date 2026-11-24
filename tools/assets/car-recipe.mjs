@@ -1,0 +1,72 @@
+// Material recipe for the player car (three r187, WebGPURenderer, node materials). This is DATA: car-spec.mjs copies it into
+// public/assets/car/car.json ("materials"), dev/preview-car.html is the reference implementation that turns it into
+// TSL node materials. All colours are sRGB hex strings unless the key ends in "Linear". Lengths in metres.
+export const RECIPE = {
+	schema: 1,
+	reference: 'dev/preview-car.html -> createCarMaterials()',
+	conventions: [
+		'Keys of "byMaterial" are glTF material names in car.glb / car_lod1.glb. Replace the loaded material of every mesh by the node material built from the entry with the same name.',
+		'Vertex colour (COLOR_0, grey) is baked ambient occlusion = sky visibility. Use it as material.aoNode = mix(1, mix(aoFloor, 1, vertexColor().r), ao); never as albedo (set vertexColors = false). aoFloor (default 0) stands in for light bouncing around inside the cabin.',
+		'All car surfaces exist twice in LOD0 (second copy with reversed winding). Keep every material FrontSide; never use DoubleSide on LOD0.',
+		'Light meshes are driven by emissive only: emissiveNode = emissive colour * intensity(state). Off-state looks come from the base parameters.',
+	],
+	textures: {
+		tireTread: { file: 'tire_tread_n.png', size: [ 256, 512 ], colorSpace: 'linear (NoColorSpace)', wrapS: 'Repeat', wrapT: 'ClampToEdge', anisotropy: 8, channels: 'RGB = tangent-space normal (OpenGL +Y), A = cavity (1 surface .. 0 groove floor)', repeatsAround: 64 },
+		tireSidewall: { file: 'tire_sidewall_n.png', size: [ 2048, 256 ], colorSpace: 'linear (NoColorSpace)', wrapS: 'Repeat', wrapT: 'ClampToEdge', anisotropy: 8, channels: 'RGB = tangent-space normal (OpenGL +Y), A = height (0.5 = base, lettering/ribs > 0.5)' },
+		groundShadow: { file: 'car_ground_ao.png' },
+	},
+	// --- body paint presets ------------------------------------------------------------------------------------------------
+	defaultPaint: 'rosso',
+	paints: {
+		rosso: { label: 'Deep red (solid)', color: '#a30b0e', flopColor: '#4a0306', flop: 0.5, metalness: 0.0, roughness: 0.6, baseSpecular: 0.25, clearcoat: 1.0, clearcoatRoughness: 0.035, flake: 0.0, flakeScale: 2600, caliper: '#e3a800' },
+		bianco: { label: 'Pearl white (tri-coat)', color: '#e9e7e0', flopColor: '#bfc4cf', flop: 0.5, metalness: 0.12, roughness: 0.42, baseSpecular: 0.6, clearcoat: 1.0, clearcoatRoughness: 0.035, flake: 0.16, flakeScale: 3200, caliper: '#a30d10' },
+		blu: { label: 'Midnight blue (metallic)', color: '#0b1d4a', flopColor: '#02040d', flop: 0.75, metalness: 0.72, roughness: 0.4, baseSpecular: 1.0, clearcoat: 1.0, clearcoatRoughness: 0.035, flake: 0.3, flakeScale: 2600, caliper: '#e3a800' },
+		grigio: { label: 'Graphite grey (metallic)', color: '#3b3d41', flopColor: '#0b0c0e', flop: 0.7, metalness: 0.78, roughness: 0.38, baseSpecular: 1.0, clearcoat: 1.0, clearcoatRoughness: 0.035, flake: 0.3, flakeScale: 2600, caliper: '#a30d10' },
+		giallo: { label: 'Yellow (solid)', color: '#f2b705', flopColor: '#b46a00', flop: 0.45, metalness: 0.0, roughness: 0.6, baseSpecular: 0.25, clearcoat: 1.0, clearcoatRoughness: 0.035, flake: 0.0, flakeScale: 2600, caliper: '#0b0b0c' },
+	},
+	// --- emissive states ---------------------------------------------------------------------------------------------------
+	lights: {
+		note: 'intensity multiplies the linear emissive colour; values assume ACES/AgX tone mapping at exposure ~1 and an optional bloom threshold of 1.',
+		headlight: { material: 'Projector_Glass', mesh: 'light_headlight', color: '#fff3e0', off: 0, on: 60 },
+		drl: { material: 'Turn_Signal_LED', mesh: 'light_drl', color: '#eef3ff', off: 0, on: 18, note: 'LED strips in the headlamps; daytime running light. May double as front indicator (amber #ff8a1a, blink).' },
+		tail: { material: 'Taillight_Glass', mesh: 'light_tail', color: '#ff1408', off: 0, tail: 1.6, brake: 14, note: 'the mesh to make emissive when braking; "tail" level when the lights are on' },
+		brakeHigh: { material: 'Light_Brake_High', mesh: 'light_brake_high', color: '#ff1408', off: 0, on: 14 },
+		reverse: { material: 'Light_Reverse', mesh: 'light_reverse', color: '#ffffff', off: 0, on: 14 },
+		fogRear: { material: 'Light_Fog_Rear', mesh: 'light_fog', color: '#ff1408', off: 0, on: 12 },
+		indicatorLeft: { material: 'Light_Indicator', mesh: 'light_indicator_l', color: '#ff8a1a', off: 0, on: 16, note: 'clone the material per side' },
+		indicatorRight: { material: 'Light_Indicator', mesh: 'light_indicator_r', color: '#ff8a1a', off: 0, on: 16 },
+	},
+	// --- per material ------------------------------------------------------------------------------------------------------
+	byMaterial: {
+		Body_Color: { type: 'carpaint', class: 'MeshPhysicalNodeMaterial', paint: '<paints[name]>', ao: 0.9, flakeFadeNear: 2.5, flakeFadeFar: 14, note: 'base layer = pigment (+ metallic flakes: per-cell random normal in object space, faded with distance), colour shifts to flopColor at grazing angles, clearcoat keeps the smooth geometric normal' },
+		Glass_Gray: { type: 'glass', class: 'MeshPhysicalNodeMaterial', tint: '#0b1512', transmission: 0.78, roughness: 0.02, ior: 1.52, ao: 0, note: 'windscreen + wind stop. alpha = 1 - transmission * (1 - fresnel); CustomBlending One / OneMinusSrcAlpha so reflections are added at full strength; depthWrite false' },
+		Lamp_Glass: { type: 'glass', class: 'MeshPhysicalNodeMaterial', tint: '#101010', transmission: 0.93, roughness: 0.03, ior: 1.5, ao: 0, note: 'clear headlamp covers and tail-lamp centre lenses' },
+		Taillight_Lens: { type: 'glass', class: 'MeshPhysicalNodeMaterial', tint: '#5a0303', transmission: 0.42, roughness: 0.06, ior: 1.5, ao: 0, emissiveFrom: 'tail', emissiveScale: 0.12, note: 'smooth red outer lens of the round tail lamps; the fluted inner part (Taillight_Glass) is the emitter' },
+		Trim_Black: { type: 'standard', class: 'MeshStandardNodeMaterial', color: '#232324', metalness: 0.0, roughness: 0.55, ao: 1, note: 'unpainted exterior plastic: diffuser, splitter, strakes, wipers, arch liners, undertray' },
+		Grille_Mesh: { type: 'grille', class: 'MeshStandardNodeMaterial', wireColor: '#2c2c2e', holeColor: '#030303', cell: 0.011, wire: 0.2, metalness: 0.55, roughness: 0.45, ao: 1, note: 'flat panels: procedural diamond mesh (object-space, projected on the dominant axis)' },
+		metal_chrome: { type: 'standard', class: 'MeshStandardNodeMaterial', color: '#e6e6e6', metalness: 1.0, roughness: 0.06, ao: 1 },
+		Mirror: { type: 'standard', class: 'MeshStandardNodeMaterial', color: '#eef0f2', metalness: 1.0, roughness: 0.0, ao: 0, note: 'door mirrors + interior mirror; reflects the environment map only' },
+		Exhaust_Tip: { type: 'exhaust', class: 'MeshStandardNodeMaterial', color: '#b9b2a6', sootColor: '#050505', metalness: 1.0, roughness: 0.2, sootRoughness: 0.85, ao: 1, note: 'polished steel; baked AO < 0.45 blends to soot so the inside of the pipes is black' },
+		Headlight_Housing: { type: 'standard', class: 'MeshStandardNodeMaterial', color: '#4a4a4d', metalness: 1.0, roughness: 0.3, ao: 1, note: 'satin dark chrome bezels inside the headlamps' },
+		Projector_Glass: { type: 'light', class: 'MeshPhysicalNodeMaterial', color: '#0c0d10', metalness: 0.0, roughness: 0.03, clearcoat: 1.0, light: 'headlight', ao: 0.5 },
+		Turn_Signal_LED: { type: 'light', class: 'MeshStandardNodeMaterial', color: '#b9bcc2', metalness: 0.3, roughness: 0.25, light: 'drl', ao: 0.5 },
+		Taillight_Glass: { type: 'light', class: 'MeshStandardNodeMaterial', color: '#5e0505', metalness: 0.0, roughness: 0.22, light: 'tail', ao: 0.6 },
+		Light_Brake_High: { type: 'light', class: 'MeshStandardNodeMaterial', color: '#520404', metalness: 0.0, roughness: 0.2, light: 'brakeHigh', ao: 0.6 },
+		Light_Reverse: { type: 'light', class: 'MeshStandardNodeMaterial', color: '#c9c9c9', metalness: 0.2, roughness: 0.15, light: 'reverse', ao: 0.6 },
+		Light_Fog_Rear: { type: 'light', class: 'MeshStandardNodeMaterial', color: '#5e0505', metalness: 0.0, roughness: 0.15, light: 'fogRear', ao: 0.6 },
+		Light_Indicator: { type: 'light', class: 'MeshStandardNodeMaterial', color: '#b8b8b8', metalness: 0.3, roughness: 0.2, light: 'indicatorLeft|indicatorRight (by mesh)', ao: 0.6 },
+		Interior_dark: { type: 'grain', class: 'MeshStandardNodeMaterial', color: '#333334', metalness: 0.0, roughness: 0.62, grain: 0.05, grainScale: 1500, ao: 1, aoFloor: 0.3, note: 'soft-touch interior plastic' },
+		Leather: { type: 'grain', class: 'MeshStandardNodeMaterial', color: '#393837', metalness: 0.0, roughness: 0.46, grain: 0.13, grainScale: 650, ao: 1, aoFloor: 0.3, note: 'black leather: dashboard, doors, seat bolsters, steering wheel rim' },
+		Leather_red: { type: 'standard', class: 'MeshStandardNodeMaterial', color: '#a81010', metalness: 0.0, roughness: 0.6, ao: 1, aoFloor: 0.3, note: 'contrast stitching/piping and red buttons' },
+		Carbon_Fiber: { type: 'carbon', class: 'MeshPhysicalNodeMaterial', colorA: '#444547', colorB: '#1c1c1e', aoFloor: 0.3, tow: 0.0022, tilt: 0.35, metalness: 0.35, roughness: 0.42, clearcoat: 1.0, clearcoatRoughness: 0.06, ao: 1, note: '2x2 twill weave, procedural in object space (dominant-axis projection)' },
+		Carpet: { type: 'grain', class: 'MeshPhysicalNodeMaterial', aoFloor: 0.3, color: '#262627', metalness: 0.0, roughness: 1.0, grain: 0.5, grainScale: 2400, sheen: 0.6, sheenRoughness: 0.9, sheenColor: '#2a2a2a', ao: 1 },
+		Seat_Fabric: { type: 'grain', class: 'MeshPhysicalNodeMaterial', aoFloor: 0.3, color: '#424243', metalness: 0.0, roughness: 0.95, grain: 0.25, grainScale: 3000, sheen: 1.0, sheenRoughness: 0.6, sheenColor: '#5a5a5c', ao: 1, note: 'Alcantara seat centre panels' },
+		metal_gray: { type: 'standard', class: 'MeshStandardNodeMaterial', color: '#a9aaac', metalness: 1.0, roughness: 0.34, ao: 1, aoFloor: 0.3, note: 'satin aluminium: pedals, vent bezels, door handles, knobs' },
+		Display_Glass: { type: 'standard', class: 'MeshStandardNodeMaterial', color: '#060607', metalness: 0.0, roughness: 0.08, ao: 0.6, aoFloor: 0.3, note: 'instrument cluster screens (unlit)' },
+		Gauge_Face: { type: 'standard', class: 'MeshStandardNodeMaterial', color: '#e8a500', metalness: 0.0, roughness: 0.5, ao: 0.8, aoFloor: 0.3, note: 'rev counter face (no dial markings in the model)' },
+		Tires: { type: 'tyre', class: 'MeshStandardNodeMaterial', color: '#373738', roughnessTread: 0.92, roughnessSidewall: 0.78, normalScaleTread: 1.0, normalScaleSidewall: 1.0, grooveDarkening: 0.3, ao: 1, note: 'UV.x = once around, UV.y: 0-0.25 outboard sidewall (bead -> shoulder), 0.25-0.75 tread, 0.75-1 inboard sidewall' },
+		Rim: { type: 'rim', class: 'MeshPhysicalNodeMaterial', color: '#c2c4c8', metalness: 1.0, roughness: 0.34, clearcoat: 0.6, clearcoatRoughness: 0.08, faceColor: '#e2e4e7', faceRoughness: 0.2, faceMix: 0.0, capColor: '#0a0a0b', capMetalness: 0.2, capRoughness: 0.25, ao: 1, note: 'UV.x = 1 on the machined spoke face/outer lip (two-tone wheels: raise faceMix), UV.y = 1 on the centre cap' },
+		Brake_Disc: { type: 'disc', class: 'MeshStandardNodeMaterial', color: '#3a3a3d', holeColor: '#020202', metalness: 0.75, roughness: 0.42, holes: 30, ao: 1, note: 'cross-drilled pattern + radial brushing are procedural in wheel-local polar coordinates; UV = (outer radius, inner radius) constants per disc' },
+		Brake_Caliper: { type: 'caliper', class: 'MeshPhysicalNodeMaterial', color: '<paint.caliper>', metalness: 0.0, roughness: 0.42, clearcoat: 0.8, clearcoatRoughness: 0.1, ao: 1 },
+	},
+};

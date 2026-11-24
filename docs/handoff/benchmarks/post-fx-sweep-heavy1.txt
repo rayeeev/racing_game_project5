@@ -1,0 +1,37 @@
+?fx=pass                                           delta -0.01 [-0.12.. 0.04] base  2.79 fx  2.83 | cpu  0.1-> 0.1 | switch   0.4->  0.3 | passes 3->3 texMB 71   err=0 warn=0
+?fx=direct                                         delta  0.01 [-0.12.. 0.08] base  2.83 fx  2.81 | cpu  0.1-> 0.1 | switch   0.4->  0.4 | passes 3->3 texMB 71   err=0 warn=0
+?fx=msaa4                                          delta  0.07 [-0.03.. 0.16] base  2.81 fx  2.86 | cpu  0.1-> 0.1 | switch   0.5->  0.4 | passes 3->3 texMB 71   err=0 warn=0
+?fx=pass&scale=0.5                                 delta  0.04 [-0.23.. 0.07] base  2.82 fx  2.86 | cpu  0.1-> 0.1 | switch   0.4->  0.5 | passes 3->3 texMB 58   err=0 warn=0
+?fx=pass&scale=0.75                                delta  0.02 [-0.08.. 0.22] base  2.85 fx  2.81 | cpu  0.1-> 0.1 | switch   0.4->  0.5 | passes 3->3 texMB 63   err=0 warn=0
+?fx=mrt                                            delta  0.52 [ 0.42.. 0.61] base  2.79 fx  3.26 | cpu  0.1-> 0.2 | switch   0.5->  0.4 | passes 3->3 texMB 87   err=0 warn=0
+?fx=traa                                           delta  0.49 [ 0.44.. 0.53] base  2.84 fx  3.34 | cpu  0.1-> 0.2 | switch   0.4->  0.6 | passes 3->4 texMB 109  err=0 warn=0
+?fx=fxaa                                           delta  0.01 [-0.16.. 0.06] base   2.8 fx   2.8 | cpu  0.1-> 0.1 | switch   0.5->  0.4 | passes 3->4 texMB 87   err=0 warn=0
+?fx=smaa                                           delta  0.03 [-0.04.. 0.08] base  2.79 fx  2.82 | cpu  0.1-> 0.1 | switch   0.4->  0.5 | passes 3->7 texMB 120  err=0 warn=0
+?fx=taau&scale=0.5                                 delta  0.52 [ 0.38.. 0.55] base  2.78 fx  3.29 | cpu  0.1-> 0.2 | switch   0.4->  0.5 | passes 3->4 texMB 97   err=0 warn=0
+?fx=taau&scale=0.67                                delta  0.52 [ 0.31.. 0.86] base  2.79 fx  3.31 | cpu  0.1-> 0.2 | switch   0.6->  0.6 | passes 3->4 texMB 104  err=0 warn=0
+?fx=fsr1&scale=0.5                                 delta  0.01 [-0.02.. 0.07] base  2.79 fx  2.81 | cpu  0.1-> 0.1 | switch   0.5->  0.5 | passes 3->5 texMB 80   err=0 warn=0
+?fx=aomul                                          delta  0.53 [ 0.46.. 0.55] base  2.83 fx  3.32 | cpu  0.1-> 0.2 | switch   0.6->  0.5 | passes 3->4 texMB 88   err=0 warn=0
+?fx=aomul&aoScale=1                                delta   0.7 [  0.6.. 0.78] base   2.8 fx  3.47 | cpu  0.1-> 0.2 | switch   0.5->  0.7 | passes 3->4 texMB 89   err=0 warn=0
+?fx=aomul,denoise                                  delta  0.64 [ 0.56.. 0.96] base  2.79 fx  3.45 | cpu  0.1-> 0.2 | switch   0.5->  0.5 | passes 3->4 texMB 88   err=0 warn=0
+?fx=aomul,traa                                     delta  0.63 [ 0.59.. 0.86] base  2.86 fx  3.45 | cpu  0.1-> 0.3 | switch   0.4->  0.6 | passes 3->6 texMB 131  err=0 warn=0
+?fx=ao                                             delta   1.5 [ 1.36.. 1.53] base  2.86 fx  4.35 | cpu  0.1-> 0.2 | switch  10.4-> 13.2 | passes 3->5 texMB 93   err=0 warn=0
+?fx=ao,traa                                        delta  1.57 [ 1.47.. 1.61] base  2.83 fx  4.39 | cpu  0.1-> 0.3 | switch  10.9-> 12.3 | passes 3->6 texMB 120  err=0 warn=0
+?fx=ao,traa&aoScale=1                              delta  1.72 [ 1.67.. 1.83] base  2.81 fx  4.54 | cpu  0.1-> 0.2 | switch  10.7-> 13.3 | passes 3->6 texMB 122  err=0 warn=0
+?fx=ssgi,traa                                      delta  5.88 [ 4.93.. 6.44] base  2.81 fx  7.76 | cpu  0.1-> 0.2 | switch   0.4->  0.7 | passes 3->6 texMB 143  err=0 warn=0
+?fx=ssr                                            delta  5.17 [ 2.75.. 5.97] base  2.83 fx  5.58 | cpu  0.1-> 0.2 | switch   0.4->  0.5 | passes 3->9 texMB 118  err=0 warn=0
+?fx=ssr&ssrScale=0.5                               delta  1.34 [  0.8.. 1.62] base  2.83 fx  3.74 | cpu  0.1-> 0.2 | switch   0.4->  0.5 | passes 3->9 texMB 91   err=0 warn=0
+?fx=bloom                                          delta  0.19 [ 0.11.. 0.21] base   2.8 fx  2.97 | cpu  0.1-> 0.3 | switch   0.4->  0.6 | passes 3->15 texMB 81   err=0 warn=0
+?fx=bloomem                                        delta  0.16 [ 0.09.. 0.19] base  2.81 fx  2.96 | cpu  0.1-> 0.3 | switch   0.4->  0.8 | passes 3->15 texMB 92   err=0 warn=0
+?fx=mblur                                          delta  0.48 [ 0.46..  0.5] base   2.8 fx  3.27 | cpu  0.1-> 0.1 | switch   0.4->  0.5 | passes 3->3 texMB 82   err=0 warn=0
+?fx=dof                                            delta  0.49 [ 0.29..  0.6] base   2.8 fx  3.26 | cpu  0.1-> 0.3 | switch   0.4->  0.5 | passes 3->12 texMB 118  err=0 warn=0
+?fx=vignette                                       delta -0.01 [-0.36.. 0.08] base  2.82 fx   2.8 | cpu  0.1-> 0.1 | switch   0.4->  0.5 | passes 3->3 texMB 71   err=0 warn=0
+?fx=film                                           delta -0.04 [ -0.2.. 0.09] base  2.86 fx  2.78 | cpu  0.1-> 0.1 | switch   0.5->  0.4 | passes 3->3 texMB 71   err=0 warn=0
+?fx=ca                                             delta  0.04 [-0.22.. 0.11] base  2.81 fx  2.85 | cpu  0.1-> 0.1 | switch   0.4->  0.4 | passes 3->4 texMB 87   err=0 warn=0
+?fx=lut                                            delta -0.01 [-0.03.. 0.01] base   2.8 fx  2.78 | cpu  0.1-> 0.1 | switch   0.4->  0.4 | passes 3->3 texMB 71   err=0 warn=0
+?fx=sharpen                                        delta  0.03 [    0.. 0.05] base  2.79 fx  2.81 | cpu  0.1-> 0.1 | switch   0.4->  0.5 | passes 3->5 texMB 98   err=0 warn=0
+?fx=lensflare                                      delta  0.19 [ 0.12.. 0.24] base   2.8 fx     3 | cpu  0.1-> 0.4 | switch   0.4->  0.7 | passes 3->17 texMB 109  err=0 warn=0
+?fx=aomul,traa,bloom                               delta  0.93 [ 0.86.. 0.95] base  2.79 fx  3.74 | cpu  0.1-> 1.9 | switch   0.4->  0.8 | passes 3->18 texMB 142  err=0 warn=0
+?fx=ao,traa,bloom                                  delta  1.76 [ 1.67..  1.8] base  2.84 fx  4.59 | cpu  0.1-> 2.3 | switch  10.3-> 13.6 | passes 3->18 texMB 131  err=0 warn=0
+?fx=aomul,traa,bloom,vignette,lut,film             delta  0.91 [ 0.85.. 0.98] base   2.8 fx  3.67 | cpu  0.1-> 1.7 | switch   0.4->  0.7 | passes 3->18 texMB 142  err=0 warn=0
+?fx=aomul,traa,bloom,ssr                           delta  7.44 [ 4.27.. 7.68] base  2.82 fx  7.17 | cpu  0.1-> 7.3 | switch   0.4->  0.8 | passes 3->24 texMB 184  err=0 warn=0
+?fx=ao,traa,bloom,ssgi                             delta  5.53 [ 4.95..  5.9] base  2.79 fx     8 | cpu  0.1-> 7.4 | switch   0.5->  0.9 | passes 3->20 texMB 165  err=11 warn=6

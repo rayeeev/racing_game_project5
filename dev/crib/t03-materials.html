@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crib t03 - node materials / TSL</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!-- 6 x 3 grid of spheres / quads, each exercising a group of TSL features. row 0 = back row. -->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import {
+	Fn, If, Loop, Switch, Break, Discard, Return, select,
+	float, int, vec2, vec3, vec4, color, mat3, bool,
+	uniform, uniformArray, texture, uv, attribute, varying, vertexStage, time, deltaTime, frameId,
+	positionLocal, positionGeometry, positionWorld, positionView, positionViewDirection, positionWorldDirection,
+	normalLocal, normalGeometry, normalView, normalWorld, normalWorldGeometry, normalViewGeometry, tangentView, bitangentView, TBNViewMatrix,
+	cameraPosition, cameraNear, cameraFar, cameraViewMatrix, cameraProjectionMatrix, modelWorldMatrix, modelViewMatrix, modelPosition, modelScale,
+	normalMap, bumpMap, triplanarTexture, materialColor, materialRoughness, materialNormal,
+	mix, smoothstep, step, saturate, clamp, remap, remapClamp, pow, abs, sin, cos, fract, floor, min, max, dot, cross, normalize, length, mod, sign, oneMinus, fwidth, dFdx, dFdy,
+	hash, rand, triNoise3D, interleavedGradientNoise, mx_noise_float, mx_noise_vec3, mx_fractal_noise_float, mx_fractal_noise_vec3, mx_worley_noise_float, mx_cell_noise_float,
+	screenUV, screenCoordinate, screenSize, viewportUV, viewportCoordinate, viewportSize,
+	viewportDepthTexture, viewportLinearDepth, linearDepth, depth, perspectiveDepthToViewZ, viewZToOrthographicDepth, viewportSharedTexture, viewportTexture, viewportMipTexture,
+	frontFacing, faceDirection, instanceIndex, vertexIndex, oscSine, rotateUV, luminance, hue, saturation, checker, shapeCircle
+} from 'three/tsl';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { checkerTexture, noiseNormalTexture, noiseTexture, leafTexture, report, str } from './_common.js';
+
+const info = {};
+const renderer = new THREE.WebGPURenderer( { antialias: true, alpha: false } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( 36, window.innerWidth / window.innerHeight, 0.1, 100 );
+camera.position.set( 0, 6.6, 7.6 );
+camera.lookAt( 0, 0.35, - 0.75 );
+
+const pmrem = new THREE.PMREMGenerator( renderer );
+scene.environment = pmrem.fromScene( new RoomEnvironment(), 0.04 ).texture;
+pmrem.dispose();
+scene.backgroundNode = screenUV.y.mix( color( 0x9fb6cc ), color( 0x54606e ) );
+
+scene.environmentIntensity = 0.5;
+const sun = new THREE.DirectionalLight( 0xfff0dd, 2.2 );
+sun.position.set( 4, 9, 5 );
+sun.castShadow = true;
+sun.shadow.mapSize.set( 2048, 2048 );
+Object.assign( sun.shadow.camera, { left: - 9, right: 9, top: 9, bottom: - 9, near: 1, far: 30 } );
+sun.shadow.bias = - 0.0005;
+scene.add( sun );
+
+const ground = new THREE.Mesh( new THREE.PlaneGeometry( 30, 30 ), new THREE.MeshStandardMaterial( { color: 0x6d7074, roughness: 0.9 } ) );
+ground.rotation.x = - Math.PI / 2;
+ground.receiveShadow = true;
+scene.add( ground );
+
+const albedo = checkerTexture( 256, 4, '#d9c9a8', '#8a5a3c' );
+const nrmA = noiseNormalTexture( 256, 6, 32, 1 );   // large bumps
+const nrmB = noiseNormalTexture( 256, 10, 4, 5 );   // fine detail
+const heightTex = noiseTexture( 256, 16, 9 );
+const leaf = leafTexture( 256 );
+albedo.anisotropy = nrmA.anisotropy = nrmB.anisotropy = 8;
+
+const sphereGeo = new THREE.SphereGeometry( 0.62, 96, 48 );
+const quadGeo = new THREE.PlaneGeometry( 1.3, 1.3, 1, 1 );
+const slot = ( col, row ) => new THREE.Vector3( ( col - 2.5 ) * 1.75, 0.72, ( row - 1 ) * 2.2 - 0.4 );
+function add( geo, mat, col, row, opts = {} ) {
+
+	const m = new THREE.Mesh( geo, mat );
+	m.position.copy( slot( col, row ) );
+	if ( geo === quadGeo ) m.rotation.x = - 0.5;
+	m.castShadow = opts.castShadow !== false;
+	m.receiveShadow = true;
+	scene.add( m );
+	return m;
+
+}
+
+// ====================================================================== ROW 0 (back): PBR slots
+// [0,0] colorNode / roughnessNode / metalnessNode / normalNode with custom UVs
+{
+
+	const m = new THREE.MeshStandardNodeMaterial();
+	const uvS = uv().mul( vec2( 4, 2 ) );
+	m.colorNode = texture( albedo, uvS );                                   // sRGB texture is decoded to linear automatically
+	m.roughnessNode = texture( heightTex, uvS ).r.remap( 0, 1, 0.15, 0.9 );
+	m.metalnessNode = float( 0 );
+	m.normalNode = normalMap( texture( nrmA, uvS ), vec2( 1.5, 1.5 ) );     // normalMap( rawSampleRGB_0..1, scaleVec2 ) -> view space normal
+	add( sphereGeo, m, 0, 0 );
+
+}
+
+// [1,0] two tangent-space normal maps blended (whiteout blend) + AO from the height
+{
+
+	const m = new THREE.MeshStandardNodeMaterial( { color: 0x8a8f96, roughness: 0.45 } );
+	const n1 = texture( nrmA, uv().mul( vec2( 3, 1.5 ) ) ).xyz.mul( 2 ).sub( 1 );
+	const n2 = texture( nrmB, uv().mul( vec2( 12, 6 ) ) ).xyz.mul( 2 ).sub( 1 );
+	const strength1 = float( 1.5 ), strength2 = float( 0.8 );
+	const blended = vec3( n1.xy.mul( strength1 ).add( n2.xy.mul( strength2 ) ), n1.z.mul( n2.z ) ).normalize(); // whiteout
+	m.normalNode = TBNViewMatrix.mul( blended ).normalize();                 // tangent space -> view space (what normalMap() does internally)
+	m.aoNode = texture( heightTex, uv().mul( vec2( 3, 1.5 ) ) ).r.smoothstep( 0.2, 0.7 );
+	add( sphereGeo, m, 1, 0 );
+
+}
+
+// [2,0] bumpMap( heightNode, scale )
+{
+
+	const m = new THREE.MeshStandardNodeMaterial( { color: 0xb0733a, roughness: 0.5, metalness: 0.8 } );
+	m.normalNode = bumpMap( texture( heightTex, uv().mul( vec2( 6, 3 ) ) ).r, float( 0.25 ) );
+	add( sphereGeo, m, 2, 0 );
+
+}
+
+// [3,0] world-space triplanar colour (texture scale in world units) + slope mask from the GEOMETRY world normal
+{
+
+	const m = new THREE.MeshStandardNodeMaterial( { roughness: 0.8 } );
+	const tri = triplanarTexture( texture( albedo ), null, null, float( 1.2 ), positionWorld, normalWorldGeometry );
+	const top = normalWorldGeometry.y.smoothstep( 0.55, 0.8 );               // 1 on flat-ish, 0 on steep
+	m.colorNode = mix( tri.rgb, color( 0x3f7a2c ), top );
+	add( sphereGeo, m, 3, 0 );
+
+}
+
+// [4,0] MeshPhysicalNodeMaterial: clearcoat, sheen, iridescence nodes
+{
+
+	const m = new THREE.MeshPhysicalNodeMaterial( { color: 0x0a2a6b, roughness: 0.5, metalness: 0.6 } );
+	m.clearcoatNode = float( 1 );
+	m.clearcoatRoughnessNode = float( 0.03 );
+	m.clearcoatNormalNode = normalViewGeometry;                               // smooth coat over a bumpy base
+	m.normalNode = normalMap( texture( nrmB, uv().mul( vec2( 16, 8 ) ) ), vec2( 0.4, 0.4 ) ); // flakes-ish base
+	m.iridescenceNode = uv().y.smoothstep( 0.45, 0.55 );
+	m.iridescenceIORNode = float( 1.5 );
+	m.iridescenceThicknessNode = float( 420 );
+	m.sheenNode = color( 0x000000 );
+	add( sphereGeo, m, 4, 0 );
+
+}
+
+// [5,0] uniforms: uniform() (number / Color / Vector), .value updates, uniformArray, emissiveNode, time nodes
+const uTint = uniform( new THREE.Color( 0xff5522 ) );    // type inferred: color
+const uPulse = uniform( 0.5 );                            // float
+const uGame = uniform( 0 );                               // own clock (the built-in `time` cannot be paused/scaled)
+const palette = uniformArray( [ new THREE.Color( 0xff3b30 ), new THREE.Color( 0xffcc00 ), new THREE.Color( 0x34c759 ), new THREE.Color( 0x007aff ) ] );
+{
+
+	const m = new THREE.MeshStandardNodeMaterial( { color: 0x111111, roughness: 0.4 } );
+	const band = uv().y.mul( 4 ).floor().toInt().clamp( 0, 3 );
+	const stripes = uv().x.mul( 24 ).add( uGame.mul( 2 ) ).sin().step( 0.0 );
+	m.emissiveNode = palette.element( band ).mul( stripes ).mul( uPulse ).add( uTint.mul( oscSine( time.mul( 0.5 ) ) ).mul( 0.2 ) );
+	add( sphereGeo, m, 5, 0 );
+
+}
+
+// ====================================================================== ROW 1: geometry / control flow / noise
+// [0,1] positionNode displacement + varying to the fragment stage
+{
+
+	const m = new THREE.MeshStandardNodeMaterial( { roughness: 0.6 } );
+	const wave = sin( positionLocal.y.mul( 9 ).add( uGame.mul( 3 ) ) ).mul( 0.07 );
+	m.positionNode = positionLocal.add( normalLocal.mul( wave ) );           // local space, AFTER skinning/instancing
+	const vWave = varying( wave.mul( 1 / 0.07 ), 'vWave' );                   // evaluated per vertex, interpolated ( = vertexStage( node ) )
+	m.colorNode = mix( color( 0x16324f ), color( 0xf2a65a ), vWave.mul( 0.5 ).add( 0.5 ) );
+	add( sphereGeo, m, 0, 1 );
+
+}
+
+// [1,1] Fn + If / ElseIf / Else + Loop + Switch
+{
+
+	const stripes = Fn( ( [ p, count ] ) => {
+
+		const result = vec3( 0 ).toVar();
+		const acc = float( 0 ).toVar();
+		Loop( { start: int( 0 ), end: count, type: 'int', condition: '<' }, ( { i } ) => {
+
+			acc.addAssign( sin( p.y.mul( float( i ).add( 1 ) ).mul( 6 ) ).mul( 0.25 ) );
+			If( acc.greaterThan( 0.6 ), () => { Break(); } );
+
+		} );
+		const sel = p.x.mul( 3 ).floor().toInt().mod( 3 ).toVar();
+		Switch( sel )
+			.Case( 0, () => { result.assign( vec3( 0.9, 0.2, 0.2 ) ); } )
+			.Case( 1, () => { result.assign( vec3( 0.2, 0.8, 0.3 ) ); } )
+			.Default( () => { result.assign( vec3( 0.2, 0.4, 0.9 ) ); } );
+		If( acc.lessThan( - 0.15 ), () => {
+
+			result.mulAssign( 0.25 );
+
+		} ).ElseIf( acc.greaterThan( 0.3 ), () => {
+
+			result.assign( mix( result, vec3( 1 ), 0.6 ) );
+
+		} ).Else( () => {
+
+			result.mulAssign( 0.8 );
+
+		} );
+		return result;
+
+	} );
+	const m = new THREE.MeshStandardNodeMaterial( { roughness: 0.5 } );
+	m.colorNode = stripes( uv().mul( vec2( 4, 2 ) ), int( 4 ) );
+	add( sphereGeo, m, 1, 1 );
+
+}
+
+// [2,1] noise helpers
+{
+
+	const m = new THREE.MeshStandardNodeMaterial( { roughness: 0.7 } );
+	const p = positionWorld.mul( 3 );
+	const n1 = mx_noise_float( p ).mul( 0.5 ).add( 0.5 );                    // perlin, ~[-1,1] -> [0,1]
+	const fbm = mx_fractal_noise_float( p, 4, 2.0, 0.5 ).mul( 0.5 ).add( 0.5 ); // ( position, octaves, lacunarity, diminish, amplitude )
+	const cells = mx_worley_noise_float( p.mul( 1.5 ) );                       // distance to nearest feature point
+	const h = hash( uv().mul( 64 ).floor().x.add( uv().mul( 32 ).floor().y.mul( 64 ) ) ); // per-cell random
+	const band = uv().y;
+	m.colorNode = select( band.lessThan( 0.3 ), vec3( n1 ),
+		select( band.lessThan( 0.5 ), vec3( fbm ), select( band.lessThan( 0.7 ), vec3( cells ), vec3( h ) ) ) );
+	add( sphereGeo, m, 2, 1 );
+
+}
+
+// [3,1] alpha test foliage: map alpha + alphaTest, DoubleSide, back faces tinted via frontFacing
+{
+
+	const m = new THREE.MeshStandardNodeMaterial( { map: leaf, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.8 } );
+	m.colorNode = materialColor.mul( select( frontFacing, vec3( 1 ), vec3( 0.55, 0.75, 0.4 ) ) );   // materialColor = color * map (keeps alpha)
+	const q = add( quadGeo, m, 3, 1 );
+	q.rotation.set( - 0.5, 0.6, 0 );
+
+}
+
+// [4,1] maskNode (discard when false) + Discard() inside Fn + alphaTestNode + alphaHash
+{
+
+	const m = new THREE.MeshStandardNodeMaterial( { color: 0xd9a441, roughness: 0.4, side: THREE.DoubleSide } );
+	m.maskNode = sin( positionLocal.y.mul( 22 ) ).greaterThan( - 0.2 );     // bool node; false -> discard (also applied in the shadow pass)
+	m.colorNode = Fn( () => {
+
+		Discard( uv().x.mul( 12 ).fract().lessThan( 0.12 ) );                 // Discard( cond ) ; or cond.discard()
+		return select( frontFacing, color( 0xd9a441 ), color( 0x5a2d0c ) );
+
+	} )();
+	add( sphereGeo, m, 4, 1 );
+
+}
+
+// [5,1] custom vertex attribute + vertexIndex
+{
+
+	const g = sphereGeo.clone();
+	const n = g.attributes.position.count;
+	const w = new Float32Array( n );
+	for ( let i = 0; i < n; i ++ ) w[ i ] = 0.5 + 0.5 * Math.sin( g.attributes.position.getY( i ) * 12 ) * Math.cos( g.attributes.position.getX( i ) * 12 );
+	g.setAttribute( 'aWeight', new THREE.BufferAttribute( w, 1 ) );
+	const m = new THREE.MeshStandardNodeMaterial( { roughness: 0.5 } );
+	const aWeight = attribute( 'aWeight', 'float' );                         // type string required for custom attributes
+	m.colorNode = mix( color( 0x222244 ), color( 0xffe08a ), aWeight );
+	m.positionNode = positionLocal.add( normalLocal.mul( aWeight.mul( 0.06 ) ) );
+	add( g, m, 5, 1 );
+
+}
+
+// ====================================================================== ROW 2 (front): screen space / depth / texture sampling
+// [0,2] texture( map ) applies map.repeat/offset; texture( map, customUV ) does NOT (unless .setUpdateMatrix( true ))
+{
+
+	const t = checkerTexture( 128, 2, '#ffffff', '#c0392b' );
+	t.repeat.set( 4, 4 );
+	const m = new THREE.MeshBasicNodeMaterial();
+	const left = texture( t );                                                // default uv -> texture matrix applied -> 8x8 cells
+	const right = texture( t, uv() );                                         // custom uv -> matrix ignored -> 2x2 cells
+	m.colorNode = select( uv().x.lessThan( 0.5 ), left, right );
+	add( quadGeo, m, 0, 2, { castShadow: false } );
+
+}
+
+// [1,2] explicit LOD: .level() / .bias() / .grad() / .blur()
+{
+
+	const t = checkerTexture( 256, 32, '#ffffff', '#1c1c1c' );
+	const m = new THREE.MeshBasicNodeMaterial();
+	const u = uv().mul( 1 );
+	const a = texture( t, u );                       // auto mip
+	const b = texture( t, u ).level( 3 );            // explicit mip 3
+	const c = texture( t, u ).bias( 2 );             // auto mip + 2
+	const d = texture( t, u ).grad( dFdx( u ).mul( 6 ), dFdy( u ).mul( 6 ) ); // explicit gradients
+	m.colorNode = select( uv().y.greaterThan( 0.75 ), a, select( uv().y.greaterThan( 0.5 ), b, select( uv().y.greaterThan( 0.25 ), c, d ) ) );
+	add( quadGeo, m, 1, 2, { castShadow: false } );
+
+}
+
+// [2,2] screen coordinates: screenUV (0..1, origin TOP-left), screenCoordinate (px), screenSize
+{
+
+	const m = new THREE.MeshBasicNodeMaterial();
+	const grid = screenCoordinate.xy.div( 16 ).floor();
+	const chk = grid.x.add( grid.y ).mod( 2 );
+	m.colorNode = vec3( screenUV.x, screenUV.y, chk.mul( 0.5 ) );
+	add( sphereGeo, m, 2, 2, { castShadow: false } );
+
+}
+
+// [3,2] fresnel from view direction + world position stripes + camera distance fade
+{
+
+	const m = new THREE.MeshStandardNodeMaterial( { color: 0x202428, roughness: 0.3 } );
+	const viewDirWorld = cameraPosition.sub( positionWorld ).normalize();
+	const fres = oneMinus( saturate( dot( viewDirWorld, normalWorld ) ) ).pow( 3 );
+	const dist = cameraPosition.distance( positionWorld );
+	m.emissiveNode = color( 0x38c7ff ).mul( fres ).mul( 2 ).add( color( 0xff3b30 ).mul( positionWorld.y.mul( 20 ).sin().step( 0.95 ) ).mul( dist.smoothstep( 16, 10 ) ) );
+	add( sphereGeo, m, 3, 2 );
+
+}
+
+// [4,2] depth fade against the opaque scene (water edge / soft particle): transparent quad cutting through a sphere
+{
+
+	const core = new THREE.Mesh( new THREE.SphereGeometry( 0.45, 48, 24 ), new THREE.MeshStandardMaterial( { color: 0xc8b28a, roughness: 0.9 } ) );
+	core.position.copy( slot( 4, 2 ) ).y = 0.35;
+	core.castShadow = true;
+	scene.add( core );
+
+	const m = new THREE.MeshStandardNodeMaterial( { color: 0x1a6f8f, roughness: 0.1, transparent: true, depthWrite: false } );
+	const sceneViewZ = perspectiveDepthToViewZ( viewportDepthTexture( screenUV ), cameraNear, cameraFar ); // negative, view units
+	const thickness = positionView.z.sub( sceneViewZ );                       // metres of "water" between surface and scene
+	m.opacityNode = thickness.smoothstep( 0.0, 0.35 ).mul( 0.9 );
+	m.colorNode = mix( color( 0x7fe0d0 ), color( 0x0b3a52 ), thickness.smoothstep( 0, 0.6 ) );
+	const water = new THREE.Mesh( new THREE.PlaneGeometry( 1.5, 1.5 ), m );
+	water.rotation.x = - Math.PI / 2;
+	water.position.copy( slot( 4, 2 ) ).y = 0.45;
+	scene.add( water );
+
+}
+
+// [5,2] refraction via viewportSharedTexture (copy of what is already rendered behind a transparent object)
+{
+
+	const m = new THREE.MeshPhysicalNodeMaterial( { color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true } );
+	const offs = normalView.xy.mul( 0.06 );
+	m.backdropNode = viewportSharedTexture( screenUV.add( offs ) ).rgb.mul( vec3( 0.75, 1.0, 0.85 ) );
+	m.backdropAlphaNode = float( 0.9 );
+	add( sphereGeo, m, 5, 2 );
+	const behind = new THREE.Mesh( new THREE.BoxGeometry( 0.25, 1.6, 0.25 ), new THREE.MeshStandardMaterial( { color: 0xff2244 } ) );
+	behind.position.copy( slot( 5, 2 ) ).add( new THREE.Vector3( 0, 0.1, - 0.9 ) );
+	scene.add( behind );
+
+}
+
+// ---- classic material with onBeforeCompile: silently ignored by WebGPURenderer
+let obcCalled = false;
+const classic = new THREE.MeshStandardMaterial( { color: 0x999999 } );
+classic.onBeforeCompile = () => { obcCalled = true; };
+const cm = new THREE.Mesh( new THREE.BoxGeometry( 0.5, 0.5, 0.5 ), classic );
+cm.position.set( - 6.2, 0.25, 2 );
+scene.add( cm );
+
+// ---- shader debugging
+const dbgMesh = scene.children.find( ( o ) => o.isMesh && o.material.isMeshStandardNodeMaterial );
+const sh = await renderer.debug.getShaderAsync( scene, camera, dbgMesh );
+info.wgsl = { vertex: sh.vertexShader.length, fragment: sh.fragmentShader.length, isWGSL: /@fragment|fn main/.test( sh.fragmentShader ) };
+
+await renderer.compileAsync( scene, camera );
+
+let frame = 0;
+const timer = new THREE.Timer();
+renderer.setAnimationLoop( ( t ) => {
+
+	timer.update( t );
+	uGame.value += 1 / 30;                               // fixed step so screenshots are deterministic
+	uPulse.value = 1.2;                                  // float uniform: assign .value
+	uTint.value.setHSL( 0.05, 1, 0.5 );                  // object uniforms: mutate in place
+	palette.array[ 3 ].set( 0x5ac8fa );                  // uniformArray: mutate the elements of .array
+	renderer.render( scene, camera );
+	if ( ++ frame === 30 ) {
+
+		info.onBeforeCompileCalled = obcCalled;
+		info.render = { drawCalls: renderer.info.render.drawCalls, triangles: renderer.info.render.triangles };
+		report( info );
+
+	}
+
+} );
+</script>
+</body>
+</html>

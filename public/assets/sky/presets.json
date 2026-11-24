@@ -1,0 +1,350 @@
+[
+	{
+		"id": "golden",
+		"name": "Golden Hour",
+		"description": "Low warm sun (7 deg) with cumulus clouds catching golden light; long crisp shadows, deep blue zenith.",
+		"files": {
+			"sky": "/assets/sky/golden/sky.hdr",
+			"sky2k": "/assets/sky/golden/sky_2k.hdr",
+			"env": "/assets/sky/golden/env.hdr",
+			"thumb": "/assets/sky/golden/thumb.jpg",
+			"meta": "/assets/sky/golden/meta.json"
+		},
+		"meta": {
+			"id": "golden",
+			"name": "Golden Hour",
+			"description": "Low warm sun (7 deg) with cumulus clouds catching golden light; long crisp shadows, deep blue zenith.",
+			"hasSun": true,
+			"sunDirection": [ 0.6402, 0.12661, 0.7577 ],
+			"sunElevationDeg": 7.27,
+			"sunAzimuthDeg": 40.2,
+			"sunColor": [ 1, 0.8466, 0.4227 ],
+			"sunColorHex": "ffedae",
+			"sunIntensity": 3.8966,
+			"sunAngularDiameterDeg": 0.53,
+			"shadowSoftness": "sharp",
+			"ambientIntensity": 1,
+			"exposure": {
+				"aces": 1,
+				"agx": 1.2
+			},
+			"zenithColor": [ 0.09, 0.102, 0.1383 ],
+			"horizonColor": [ 0.6814, 0.7552, 0.652 ],
+			"horizonColors": [
+				[ 0.6056, 0.7457, 0.7126 ],
+				[ 2.666, 2.4697, 1.563 ],
+				[ 0.5358, 0.6728, 0.6577 ],
+				[ 0.2868, 0.3902, 0.4495 ],
+				[ 0.3086, 0.3872, 0.4086 ],
+				[ 0.3546, 0.4354, 0.416 ],
+				[ 0.3641, 0.4787, 0.4949 ],
+				[ 0.3296, 0.4618, 0.5141 ]
+			],
+			"sunsideHazeColor": [ 2.0732, 1.9897, 1.3823 ],
+			"groundColor": [ 0.173, 0.1922, 0.2023 ],
+			"averageLuminance": 0.2475,
+			"averageColor": [ 0.2265, 0.2512, 0.2732 ],
+			"upperHemisphereLuminance": 0.3062,
+			"skyIrradiance": [ 0.5827, 0.6448, 0.7945 ],
+			"groundIrradiance": [ 0.2793, 0.3116, 0.3728 ],
+			"sunIrradianceHorizontal": [ 0.4934, 0.4177, 0.2085 ],
+			"sunToSkyRatio": 0.652,
+			"envPeakLuminance": 35.412,
+			"skyPeakLuminance": 68319.9,
+			"backgroundClamp": 64,
+			"fog": {
+				"color": [ 0.3593, 0.4702, 0.5045 ],
+				"density": "hazy"
+			},
+			"files": {
+				"sky": "/assets/sky/golden/sky.hdr",
+				"sky2k": "/assets/sky/golden/sky_2k.hdr",
+				"env": "/assets/sky/golden/env.hdr",
+				"thumb": "/assets/sky/golden/thumb.jpg",
+				"meta": "/assets/sky/golden/meta.json"
+			},
+			"resolution": {
+				"sky": [ 4096, 2048 ],
+				"sky2k": [ 2048, 1024 ],
+				"env": [ 1024, 512 ]
+			},
+			"conventions": {
+				"space": "three.js world space, Y up, equirect used with EquirectangularReflectionMapping and no rotation",
+				"azimuth": "degrees, atan2(x, z): 0 = +Z, 90 = +X, 180 = -Z, 270 = -X; direction = (cos(el) sin(az), sin(el), cos(el) cos(az))",
+				"horizonColors": "8 sectors of 45 deg centred on azimuth 0, 45, ... 315; elevation band 1..6 deg",
+				"fogColor": "per-channel median of horizonColors (use horizonColors / sunsideHazeColor for direction-dependent fog)",
+				"colors": "linear sRGB (Rec.709 primaries), radiance in the units of sky.hdr / env.hdr",
+				"sunIntensity": "DirectionalLight.intensity for color = sunColor; intensity * color = irradiance removed from env.hdr",
+				"backgroundClamp": "suggested min( skyRadiance, backgroundClamp ) for the visible sky before bloom / TAA (null = not needed)"
+			},
+			"source": "https://polyhaven.com/a/table_mountain_2_puresky",
+			"sourceId": "table_mountain_2_puresky",
+			"author": "Greg Zaal (original HDRI), Jarod Guest (sky edit)",
+			"license": "CC0",
+			"sunRemoval": {
+				"maskRadiusDeg": 1,
+				"clampLuminance": 29.199,
+				"clampedPixels4k": 411,
+				"skyPixelsAboveHalfFloatMax": 9
+			}
+		}
+	},
+	{
+		"id": "noon",
+		"name": "Midday",
+		"description": "High neutral sun (48 deg) in a deep blue sky with fair-weather cumulus; crisp shadows.",
+		"files": {
+			"sky": "/assets/sky/noon/sky.hdr",
+			"sky2k": "/assets/sky/noon/sky_2k.hdr",
+			"env": "/assets/sky/noon/env.hdr",
+			"thumb": "/assets/sky/noon/thumb.jpg",
+			"meta": "/assets/sky/noon/meta.json"
+		},
+		"meta": {
+			"id": "noon",
+			"name": "Midday",
+			"description": "High neutral sun (48 deg) in a deep blue sky with fair-weather cumulus; crisp shadows.",
+			"hasSun": true,
+			"sunDirection": [ 0.55424, 0.74183, 0.37751 ],
+			"sunElevationDeg": 47.89,
+			"sunAzimuthDeg": 55.74,
+			"sunColor": [ 0.9918, 1, 0.9083 ],
+			"sunColorHex": "fefff4",
+			"sunIntensity": 4.3867,
+			"sunAngularDiameterDeg": 0.53,
+			"shadowSoftness": "sharp",
+			"ambientIntensity": 1,
+			"exposure": {
+				"aces": 0.7,
+				"agx": 0.85
+			},
+			"zenithColor": [ 0.542, 0.5863, 0.7436 ],
+			"horizonColor": [ 0.4492, 0.4833, 0.5887 ],
+			"horizonColors": [
+				[ 0.5182, 0.5631, 0.675 ],
+				[ 0.7626, 0.8527, 1.0327 ],
+				[ 0.6829, 0.7509, 0.9046 ],
+				[ 0.3897, 0.4202, 0.5188 ],
+				[ 0.3161, 0.3287, 0.4104 ],
+				[ 0.301, 0.3073, 0.3829 ],
+				[ 0.2861, 0.2918, 0.3609 ],
+				[ 0.3369, 0.3521, 0.4246 ]
+			],
+			"sunsideHazeColor": [ 0.7804, 0.8847, 1.0913 ],
+			"groundColor": [ 0.1931, 0.2252, 0.3217 ],
+			"averageLuminance": 0.348,
+			"averageColor": [ 0.2987, 0.3475, 0.4983 ],
+			"upperHemisphereLuminance": 0.4707,
+			"skyIrradiance": [ 1.3698, 1.5724, 2.2478 ],
+			"groundIrradiance": [ 0.4946, 0.5791, 0.8488 ],
+			"sunIrradianceHorizontal": [ 3.2273, 3.2542, 2.9559 ],
+			"sunToSkyRatio": 2.045,
+			"envPeakLuminance": 83.304,
+			"skyPeakLuminance": 74901.4,
+			"backgroundClamp": 64,
+			"fog": {
+				"color": [ 0.3633, 0.3862, 0.4717 ],
+				"density": "clear"
+			},
+			"files": {
+				"sky": "/assets/sky/noon/sky.hdr",
+				"sky2k": "/assets/sky/noon/sky_2k.hdr",
+				"env": "/assets/sky/noon/env.hdr",
+				"thumb": "/assets/sky/noon/thumb.jpg",
+				"meta": "/assets/sky/noon/meta.json"
+			},
+			"resolution": {
+				"sky": [ 4096, 2048 ],
+				"sky2k": [ 2048, 1024 ],
+				"env": [ 1024, 512 ]
+			},
+			"conventions": {
+				"space": "three.js world space, Y up, equirect used with EquirectangularReflectionMapping and no rotation",
+				"azimuth": "degrees, atan2(x, z): 0 = +Z, 90 = +X, 180 = -Z, 270 = -X; direction = (cos(el) sin(az), sin(el), cos(el) cos(az))",
+				"horizonColors": "8 sectors of 45 deg centred on azimuth 0, 45, ... 315; elevation band 1..6 deg",
+				"fogColor": "per-channel median of horizonColors (use horizonColors / sunsideHazeColor for direction-dependent fog)",
+				"colors": "linear sRGB (Rec.709 primaries), radiance in the units of sky.hdr / env.hdr",
+				"sunIntensity": "DirectionalLight.intensity for color = sunColor; intensity * color = irradiance removed from env.hdr",
+				"backgroundClamp": "suggested min( skyRadiance, backgroundClamp ) for the visible sky before bloom / TAA (null = not needed)"
+			},
+			"source": "https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
+			"sourceId": "kloofendal_48d_partly_cloudy_puresky",
+			"author": "Greg Zaal (original HDRI), Jarod Guest (sky edit)",
+			"license": "CC0",
+			"sunRemoval": {
+				"maskRadiusDeg": 1,
+				"clampLuminance": 30.492,
+				"clampedPixels4k": 583,
+				"skyPixelsAboveHalfFloatMax": 17
+			}
+		}
+	},
+	{
+		"id": "overcast",
+		"name": "Overcast",
+		"description": "Closed, textured stratocumulus deck; soft shadowless light for the wet-road look.",
+		"files": {
+			"sky": "/assets/sky/overcast/sky.hdr",
+			"sky2k": "/assets/sky/overcast/sky_2k.hdr",
+			"env": "/assets/sky/overcast/env.hdr",
+			"thumb": "/assets/sky/overcast/thumb.jpg",
+			"meta": "/assets/sky/overcast/meta.json"
+		},
+		"meta": {
+			"id": "overcast",
+			"name": "Overcast",
+			"description": "Closed, textured stratocumulus deck; soft shadowless light for the wet-road look.",
+			"hasSun": false,
+			"sunDirection": [ 0.56833, 0.79398, 0.21585 ],
+			"sunElevationDeg": 52.56,
+			"sunAzimuthDeg": 69.2,
+			"sunColor": [ 1, 0.9919, 0.9976 ],
+			"sunColorHex": "fffeff",
+			"sunIntensity": 0,
+			"sunAngularDiameterDeg": null,
+			"shadowSoftness": "very-soft",
+			"ambientIntensity": 1,
+			"exposure": {
+				"aces": 0.52,
+				"agx": 0.55
+			},
+			"zenithColor": [ 1.8286, 1.8134, 1.8283 ],
+			"horizonColor": [ 0.7946, 0.7455, 0.696 ],
+			"horizonColors": [
+				[ 0.6144, 0.6197, 0.6181 ],
+				[ 0.7502, 0.7229, 0.6869 ],
+				[ 0.8592, 0.7562, 0.6596 ],
+				[ 1.2219, 1.0504, 0.8804 ],
+				[ 0.8573, 0.802, 0.7494 ],
+				[ 0.9146, 0.8756, 0.8378 ],
+				[ 0.5263, 0.5417, 0.5601 ],
+				[ 0.6131, 0.5953, 0.5755 ]
+			],
+			"sunsideHazeColor": [ 0.7361, 0.6901, 0.6422 ],
+			"groundColor": [ 0.5637, 0.5529, 0.5474 ],
+			"averageLuminance": 0.9098,
+			"averageColor": [ 0.9211, 0.9071, 0.9031 ],
+			"upperHemisphereLuminance": 1.2648,
+			"skyIrradiance": [ 4.7196, 4.6776, 4.6988 ],
+			"groundIrradiance": [ 1.7024, 1.685, 1.6882 ],
+			"sunIrradianceHorizontal": [ 0, 0, 0 ],
+			"sunToSkyRatio": 0,
+			"envPeakLuminance": 5.121,
+			"skyPeakLuminance": 5.3,
+			"backgroundClamp": null,
+			"fog": {
+				"color": [ 0.8038, 0.7395, 0.6732 ],
+				"density": "misty"
+			},
+			"files": {
+				"sky": "/assets/sky/overcast/sky.hdr",
+				"sky2k": "/assets/sky/overcast/sky_2k.hdr",
+				"env": "/assets/sky/overcast/env.hdr",
+				"thumb": "/assets/sky/overcast/thumb.jpg",
+				"meta": "/assets/sky/overcast/meta.json"
+			},
+			"resolution": {
+				"sky": [ 4096, 2048 ],
+				"sky2k": [ 2048, 1024 ],
+				"env": [ 1024, 512 ]
+			},
+			"conventions": {
+				"space": "three.js world space, Y up, equirect used with EquirectangularReflectionMapping and no rotation",
+				"azimuth": "degrees, atan2(x, z): 0 = +Z, 90 = +X, 180 = -Z, 270 = -X; direction = (cos(el) sin(az), sin(el), cos(el) cos(az))",
+				"horizonColors": "8 sectors of 45 deg centred on azimuth 0, 45, ... 315; elevation band 1..6 deg",
+				"fogColor": "per-channel median of horizonColors (use horizonColors / sunsideHazeColor for direction-dependent fog)",
+				"colors": "linear sRGB (Rec.709 primaries), radiance in the units of sky.hdr / env.hdr",
+				"sunIntensity": "DirectionalLight.intensity for color = sunColor; intensity * color = irradiance removed from env.hdr",
+				"backgroundClamp": "suggested min( skyRadiance, backgroundClamp ) for the visible sky before bloom / TAA (null = not needed)"
+			},
+			"source": "https://polyhaven.com/a/overcast_soil_puresky",
+			"sourceId": "overcast_soil_puresky",
+			"author": "Sergej Majboroda (original HDRI), Jarod Guest (sky edit)",
+			"license": "CC0"
+		}
+	},
+	{
+		"id": "dusk",
+		"name": "Dusk",
+		"description": "Blue hour after sunset: rose/violet afterglow on one horizon, deep blue-violet zenith; for headlight driving.",
+		"files": {
+			"sky": "/assets/sky/dusk/sky.hdr",
+			"sky2k": "/assets/sky/dusk/sky_2k.hdr",
+			"env": "/assets/sky/dusk/env.hdr",
+			"thumb": "/assets/sky/dusk/thumb.jpg",
+			"meta": "/assets/sky/dusk/meta.json"
+		},
+		"meta": {
+			"id": "dusk",
+			"name": "Dusk",
+			"description": "Blue hour after sunset: rose/violet afterglow on one horizon, deep blue-violet zenith; for headlight driving.",
+			"hasSun": false,
+			"sunDirection": [ 0.78559, 0.25162, 0.56527 ],
+			"sunElevationDeg": 14.57,
+			"sunAzimuthDeg": 54.26,
+			"sunColor": [ 1, 0.502, 0.4496 ],
+			"sunColorHex": "ffbcb3",
+			"sunIntensity": 0,
+			"sunAngularDiameterDeg": null,
+			"shadowSoftness": "very-soft",
+			"ambientIntensity": 1,
+			"exposure": {
+				"aces": 0.18,
+				"agx": 0.16
+			},
+			"zenithColor": [ 0.5861, 0.67, 1.1742 ],
+			"horizonColor": [ 1.3147, 0.8123, 0.9416 ],
+			"horizonColors": [
+				[ 1.8739, 1.1378, 1.2403 ],
+				[ 4.287, 1.8831, 1.6162 ],
+				[ 1.4293, 0.9636, 1.1611 ],
+				[ 0.738, 0.6145, 0.8412 ],
+				[ 0.4418, 0.3962, 0.579 ],
+				[ 0.4835, 0.4278, 0.6127 ],
+				[ 0.5244, 0.4615, 0.6573 ],
+				[ 0.7396, 0.6139, 0.8249 ]
+			],
+			"sunsideHazeColor": [ 4.9137, 2.1396, 1.7694 ],
+			"groundColor": [ 0.7777, 0.5828, 0.7585 ],
+			"averageLuminance": 0.944,
+			"averageColor": [ 1.1122, 0.871, 1.1724 ],
+			"upperHemisphereLuminance": 1.2511,
+			"skyIrradiance": [ 3.7265, 3.3632, 5.0015 ],
+			"groundIrradiance": [ 1.694, 1.4238, 2.0173 ],
+			"sunIrradianceHorizontal": [ 0, 0, 0 ],
+			"sunToSkyRatio": 0,
+			"envPeakLuminance": 5.459,
+			"skyPeakLuminance": 5.6,
+			"backgroundClamp": null,
+			"fog": {
+				"color": [ 0.7388, 0.6142, 0.833 ],
+				"density": "hazy"
+			},
+			"files": {
+				"sky": "/assets/sky/dusk/sky.hdr",
+				"sky2k": "/assets/sky/dusk/sky_2k.hdr",
+				"env": "/assets/sky/dusk/env.hdr",
+				"thumb": "/assets/sky/dusk/thumb.jpg",
+				"meta": "/assets/sky/dusk/meta.json"
+			},
+			"resolution": {
+				"sky": [ 4096, 2048 ],
+				"sky2k": [ 2048, 1024 ],
+				"env": [ 1024, 512 ]
+			},
+			"conventions": {
+				"space": "three.js world space, Y up, equirect used with EquirectangularReflectionMapping and no rotation",
+				"azimuth": "degrees, atan2(x, z): 0 = +Z, 90 = +X, 180 = -Z, 270 = -X; direction = (cos(el) sin(az), sin(el), cos(el) cos(az))",
+				"horizonColors": "8 sectors of 45 deg centred on azimuth 0, 45, ... 315; elevation band 1..6 deg",
+				"fogColor": "per-channel median of horizonColors (use horizonColors / sunsideHazeColor for direction-dependent fog)",
+				"colors": "linear sRGB (Rec.709 primaries), radiance in the units of sky.hdr / env.hdr",
+				"sunIntensity": "DirectionalLight.intensity for color = sunColor; intensity * color = irradiance removed from env.hdr",
+				"backgroundClamp": "suggested min( skyRadiance, backgroundClamp ) for the visible sky before bloom / TAA (null = not needed)"
+			},
+			"source": "https://polyhaven.com/a/qwantani_dusk_2_puresky",
+			"sourceId": "qwantani_dusk_2_puresky",
+			"author": "Greg Zaal (photography), Jarod Guest (processing)",
+			"license": "CC0"
+		}
+	}
+]

@@ -1,0 +1,62 @@
+{
+	"version": 1,
+	"seed": 20261117,
+	"n": 1537,
+	"cell": 2,
+	"minX": -1536,
+	"minZ": -1536,
+	"size": 3072,
+	"waterLevel": 0,
+	"mapSize": 769,
+	"outer": {
+		"n": 513,
+		"cell": 48,
+		"minX": -12288,
+		"minZ": -12288,
+		"size": 24576
+	},
+	"track": {
+		"name": "Alpenglow",
+		"length": 5315,
+		"sectors": [
+			0,
+			1913.3999999999999,
+			3295.3
+		],
+		"checkpoints": 35,
+		"gridS": 5195
+	},
+	"files": {
+		"height": "height.bin",
+		"outerHeight": "outer_height.bin",
+		"surface": "surface.bin",
+		"splat0": "splat0.png",
+		"splat1": "splat1.png",
+		"fields": "fields.png"
+	},
+	"bytes": {
+		"height.bin": 9449476,
+		"outer_height.bin": 1052676,
+		"surface.bin": 2362369,
+		"splat0.png": 872101,
+		"splat1.png": 357494,
+		"fields.png": 1361683
+	},
+	"stats": {
+		"minHeight": -36.842350006103516,
+		"maxHeight": 613.3755493164062,
+		"maxCut": 8.513979232382383,
+		"maxFill": 12.254984544722063,
+		"biomeCoverage": {
+			"grass_meadow": 37.8,
+			"grass_dry": 8.4,
+			"forest_floor": 32.5,
+			"dirt": 2.4,
+			"gravel": 5.1,
+			"rock_cliff": 2.2,
+			"rock_ground": 6.6,
+			"shore": 5
+		}
+	},
+	"hash": "d87b14aa5de1abfd"
+}

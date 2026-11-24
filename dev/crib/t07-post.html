@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crib t07 - output transform / runtime switching / readback / LUT</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!-- Numeric checks (window.__info) + a final picture with a .CUBE LUT. inst=0 -> 400 separate meshes for the switching cost tests -->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { pass, mrt, output, velocity, normalView, packNormalToRGB, unpackRGBToNormal, sample, screenUV, vec3, vec4, uniform, renderOutput, texture3D, builtinAOContext, saturation, luminance } from 'three/tsl';
+import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { lut3D } from 'three/addons/tsl/display/Lut3DNode.js';
+import { LUTCubeLoader } from 'three/addons/loaders/LUTCubeLoader.js';
+import { LUT3dlLoader } from 'three/addons/loaders/LUT3dlLoader.js';
+import { buildBenchScene } from './_scene.js';
+import { num, report } from './_common.js';
+
+const info = {};
+const renderer = new THREE.WebGPURenderer( { antialias: false, alpha: false } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1;
+renderer.shadowMap.enabled = true;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const nextFrame = () => new Promise( ( r ) => requestAnimationFrame( r ) );
+const probe = document.createElement( 'canvas' );
+probe.width = probe.height = 4;
+const pctx = probe.getContext( '2d', { willReadFrequently: true } );
+/** centre pixel of the WebGPU canvas (must be called in the same task as the render) */
+function canvasPixel() {
+
+	pctx.drawImage( renderer.domElement, renderer.domElement.width / 2 - 2, renderer.domElement.height / 2 - 2, 4, 4, 0, 0, 4, 4 );
+	return Array.from( pctx.getImageData( 1, 1, 1, 1 ).data.slice( 0, 3 ) );
+
+}
+
+// ================================================================== A. where tone mapping / colour space conversion happen
+{
+
+	const s = new THREE.Scene();
+	const cam = new THREE.OrthographicCamera( - 1, 1, 1, - 1, 0, 1 );
+	// unlit HDR colour (scene-linear): r = 2.0, g = 0.5, b = 0.1
+	const hdr = new THREE.MeshBasicNodeMaterial();
+	hdr.colorNode = vec3( 2.0, 0.5, 0.1 );
+	s.add( new THREE.Mesh( new THREE.PlaneGeometry( 2, 2 ), hdr ) );
+	const r = {};
+
+	renderer.toneMapping = THREE.ACESFilmicToneMapping;
+	renderer.render( s, cam ); r.direct_ACES_sRGB = canvasPixel();
+
+	const p = new THREE.RenderPipeline( renderer );
+	const sp = pass( s, cam );
+	p.outputNode = sp;                                  // default: tone mapping + sRGB applied AFTER outputNode
+	p.render(); r.pipeline_default = canvasPixel();
+
+	p.outputNode = sp.mul( 0.25 ); p.needsUpdate = true; // grading BEFORE tone mapping (scene-linear)
+	p.render(); r.pipeline_preTonemapScale = canvasPixel();
+
+	p.outputColorTransform = false;                      // manual: nothing is applied automatically
+	p.outputNode = sp; p.needsUpdate = true;
+	p.render(); r.pipeline_noTransform_rawLinear = canvasPixel();
+
+	p.outputNode = renderOutput( sp ); p.needsUpdate = true; // = default transform, but now effects can follow it
+	p.render(); r.pipeline_renderOutput = canvasPixel();
+
+	p.outputNode = renderOutput( sp, THREE.NoToneMapping, THREE.SRGBColorSpace ); p.needsUpdate = true; // explicit arguments
+	p.render(); r.pipeline_renderOutput_noTM = canvasPixel();
+
+	// tone mapping and colour space as separate steps: grade in between (display-linear, before the sRGB encode)
+	const tm = sp.toneMapping( THREE.ACESFilmicToneMapping, uniform( 1 ) );               // ( mapping, exposureNode )
+	const graded = vec4( saturation( tm.rgb, 0 ), 1 );                                    // desaturate after tone mapping
+	p.outputNode = graded.workingToColorSpace( THREE.SRGBColorSpace ); p.needsUpdate = true;
+	p.render(); r.pipeline_manual_TM_grade_sRGB = canvasPixel();
+
+	p.outputNode = tm.workingToColorSpace( THREE.SRGBColorSpace ); p.needsUpdate = true;
+	p.render(); r.pipeline_manual_TM_sRGB = canvasPixel();
+
+	// exposure is a renderer reference: changing it needs no rebuild
+	p.outputColorTransform = true; p.outputNode = sp; p.needsUpdate = true;
+	renderer.toneMappingExposure = 0.25;
+	p.render(); r.pipeline_exposure025 = canvasPixel();
+	renderer.toneMappingExposure = 1;
+	renderer.toneMapping = THREE.AgXToneMapping;          // changing the operator is detected automatically (rebuild)
+	p.render(); r.pipeline_AgX = canvasPixel();
+	renderer.toneMapping = THREE.ACESFilmicToneMapping;
+	info.outputTransform = r;
+	p.dispose();
+
+}
+
+// ================================================================== scene + main pipeline
+const { scene, camera, knots } = buildBenchScene( renderer, { knots: num( 'knots', 400 ), trees: num( 'trees', 5000 ), instancedKnots: num( 'inst', 0 ) === 1 } );
+
+const pipeline = new THREE.RenderPipeline( renderer );
+const scenePass = pass( scene, camera );
+scenePass.setMRT( mrt( { output, normal: packNormalToRGB( normalView ), velocity } ) );
+scenePass.getTexture( 'normal' ).type = THREE.UnsignedByteType;
+const color = scenePass.getTextureNode( 'output' ), depth = scenePass.getTextureNode( 'depth' ), vel = scenePass.getTextureNode( 'velocity' );
+const nrm = scenePass.getTextureNode( 'normal' );
+const normal = sample( ( uv ) => unpackRGBToNormal( nrm.sample( uv ) ) );
+const aoPass = ao( depth, normal, camera );
+aoPass.resolutionScale = 0.5;
+aoPass.useTemporalFiltering = true;
+const withAO = vec4( color.rgb.mul( aoPass.getTextureNode().r ), color.a );
+const traaAO = traa( withAO, depth, vel, camera );
+const traaPlain = traa( color, depth, vel, camera );
+const bloomStrength = uniform( 0.4 );
+const bloomNode = bloom( traaAO, bloomStrength, 0.5, 1.0 );   // a uniform node can be passed instead of a number
+const chainFull = traaAO.add( bloomNode );
+const chainNoAO = traaPlain;
+
+// ---- pre-compile: renderer.compileAsync( scene, camera ) compiles for the CANVAS target; a pass needs pass.compileAsync( renderer )
+let t0 = performance.now();
+await scenePass.compileAsync( renderer );
+info.passCompileAsyncMs = Math.round( performance.now() - t0 );
+pipeline.outputNode = chainFull;
+t0 = performance.now(); pipeline.render(); info.firstRenderAfterPrecompileMs = + ( performance.now() - t0 ).toFixed( 1 );
+for ( let i = 0; i < 8; i ++ ) { await nextFrame(); pipeline.render(); }
+
+const timeRender = () => { const t = performance.now(); pipeline.render(); return + ( performance.now() - t ).toFixed( 2 ); };
+
+// ================================================================== B. switching effects at runtime
+{
+
+	const r = {};
+	await nextFrame(); r.steady = timeRender();
+
+	// 1) uniforms: just assign .value (no rebuild)
+	bloomStrength.value = 0.8; aoPass.radius.value = 0.6;
+	await nextFrame(); r.afterUniformChange = timeRender();
+
+	// 2) another output graph: assign outputNode + needsUpdate = true. First use compiles the new fullscreen material.
+	pipeline.outputNode = chainNoAO; pipeline.needsUpdate = true;
+	await nextFrame(); r.switchToNoAO_first = timeRender();
+	await nextFrame(); r.switchToNoAO_second = timeRender();
+	pipeline.outputNode = chainFull; pipeline.needsUpdate = true;
+	await nextFrame(); r.switchBackFull = timeRender();
+	pipeline.outputNode = chainNoAO; pipeline.needsUpdate = true;
+	await nextFrame(); r.switchToNoAO_again = timeRender();
+	pipeline.outputNode = chainFull; pipeline.needsUpdate = true;
+	await nextFrame(); timeRender();
+
+	// 3) resolution scale of the scene pass: plain setter, effect targets follow automatically
+	const size = () => [ scenePass.renderTarget.width, scenePass.renderTarget.height ];
+	r.sizeFull = size();
+	scenePass.setResolutionScale( 0.5 );
+	await nextFrame(); r.resScaleChange_first = timeRender(); r.sizeHalf = size();
+	await nextFrame(); r.resScaleChange_second = timeRender();
+	scenePass.setResolutionScale( 1 );
+	await nextFrame(); timeRender();
+
+	// 4) changing the MRT layout or the context of a pass rebuilds the materials of ALL objects rendered by that pass
+	scenePass.contextNode = builtinAOContext( aoPass.getTextureNode().sample( screenUV ).r ); scenePass.needsUpdate = true;
+	await nextFrame(); r.contextOn_first = timeRender();
+	await nextFrame(); r.contextOn_second = timeRender();
+	scenePass.contextNode = null; scenePass.needsUpdate = true;
+	await nextFrame(); r.contextOff_first = timeRender();
+	scenePass.contextNode = builtinAOContext( aoPass.getTextureNode().sample( screenUV ).r ); scenePass.needsUpdate = true;
+	await nextFrame(); r.contextOn_again = timeRender();
+	scenePass.contextNode = null; scenePass.needsUpdate = true;
+	await nextFrame(); timeRender();
+
+	// 5) changing a property of a node that is baked into the shader (GTAO samples)
+	aoPass.samples.value = 8;
+	await nextFrame(); r.aoSamplesChange_first = timeRender();
+	await nextFrame(); r.aoSamplesChange_second = timeRender();
+
+	// 6) material switches: visible flag is free, material.needsUpdate = true recompiles
+	knots.length && ( knots[ 0 ].material.roughness = 0.9 );
+	await nextFrame(); r.materialPropertyChange = timeRender();
+	info.switching = r;
+	info.drawCalls = renderer.info.render.drawCalls;
+
+}
+
+// ================================================================== C. second camera -> RenderTarget -> pixels
+{
+
+	const mapCam = new THREE.OrthographicCamera( - 40, 40, 40, - 40, 1, 200 );
+	mapCam.position.set( 0, 100, 0 );
+	mapCam.up.set( 0, 0, - 1 );
+	mapCam.lookAt( 0, 0, 0 );
+	const rt8 = new THREE.RenderTarget( 128, 128, { type: THREE.UnsignedByteType, colorSpace: THREE.SRGBColorSpace } );  // sRGB encoded 8 bit result
+	const rt16 = new THREE.RenderTarget( 128, 128, { type: THREE.HalfFloatType } );                                        // linear HDR result
+	// marker: emissive red box at +X, blue box at -Z (top of the map), to learn the row order of the readback
+	const mk = ( col, x, z ) => { const m = new THREE.Mesh( new THREE.BoxGeometry( 12, 1, 12 ), new THREE.MeshBasicMaterial( { color: col } ) ); m.position.set( x, 12, z ); scene.add( m ); return m; };
+	const red = mk( 0xff0000, 30, 0 ), blue = mk( 0x0000ff, 0, - 30 );
+
+	for ( const [ name, rt ] of [ [ 'rt8', rt8 ], [ 'rt16', rt16 ] ] ) {
+
+		renderer.setRenderTarget( rt );
+		renderer.render( scene, mapCam );      // tone mapping + output colour space are NOT applied when rendering to a render target
+		renderer.setRenderTarget( null );
+		const px = await renderer.readRenderTargetPixelsAsync( rt, 0, 0, 128, 128 );   // ( rt, x, y, w, h, textureIndex = 0, faceIndex = 0 )
+		const at = ( x, y ) => Array.from( px.slice( ( y * 128 + x ) * 4, ( y * 128 + x ) * 4 + 4 ) );
+		info[ 'readback_' + name ] = { type: px.constructor.name, length: px.length,
+			rightCentre: at( 112, 64 ), topCentre_row16: at( 64, 16 ), bottomCentre_row112: at( 64, 112 ) };
+
+	}
+
+	// decode half floats
+	const px16 = await renderer.readRenderTargetPixelsAsync( rt16, 112, 64, 1, 1 );
+	info.readback_rt16.rightCentreFloat = Array.from( px16 ).map( ( h ) => + THREE.DataUtils.fromHalfFloat( h ).toFixed( 3 ) );
+	scene.remove( red, blue );
+	rt8.dispose(); rt16.dispose();
+
+}
+
+// ================================================================== D. LUT files (display-referred: after renderOutput)
+{
+
+	const cube = await new LUTCubeLoader().loadAsync( './assets/lut/Bourbon64.CUBE' );          // { title, size, domainMin, domainMax, texture3D }
+	const l3d = await new LUT3dlLoader().loadAsync( './assets/lut/Presetpro-Cinematic.3dl' );  // { size, texture3D }
+	info.lut = { cube: { size: cube.size, w: cube.texture3D.image.width, type: cube.texture3D.type === THREE.UnsignedByteType ? 'UnsignedByte' : cube.texture3D.type }, l3d: { size: l3d.size, w: l3d.texture3D.image.width } };
+	pipeline.outputColorTransform = false;
+	const intensity = uniform( 1 );
+	const lutNode = lut3D( renderOutput( chainFull ), texture3D( cube.texture3D ), cube.size, intensity );
+	pipeline.outputNode = lutNode;
+	pipeline.needsUpdate = true;
+	for ( let i = 0; i < 20; i ++ ) { await nextFrame(); pipeline.render(); }
+	// swapping the LUT texture at runtime (same size or not): no rebuild
+	lutNode.lutNode.value = l3d.texture3D; lutNode.size.value = l3d.size;
+	await nextFrame(); info.lutSwapRenderMs = timeRender();
+	lutNode.lutNode.value = cube.texture3D; lutNode.size.value = cube.size;
+
+}
+
+// ================================================================== E. canvas screenshot
+let frame = 0;
+renderer.setAnimationLoop( () => {
+
+	pipeline.render();
+	if ( ++ frame === 30 ) {
+
+		renderer.domElement.toBlob( ( blob ) => {       // called in the same task as render() -> the frame is still there
+
+			info.screenshot = { type: blob.type, bytes: blob.size };
+			report( info );
+
+		}, 'image/png' );
+
+	}
+
+} );
+</script>
+</body>
+</html>

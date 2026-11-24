@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crib t06 - fog / sky / volumetrics</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<!-- mode = fog | fogexp2 | fognode | height | sky | postfog | volumetric | godrays -->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import {
+	pass, color, vec3, vec4, float, uniform, Fn, mix, fog, rangeFogFactor, densityFogFactor, exponentialHeightFogFactor, positionWorld, positionView, cameraPosition,
+	normalWorldGeometry, positionWorldDirection, screenUV, screenCoordinate, time, triNoise3D, smoothstep, saturate, pow, dot, exp, renderGroup, interleavedGradientNoise, output
+} from 'three/tsl';
+import { SkyMesh } from 'three/addons/objects/SkyMesh.js';
+import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
+import { godrays } from 'three/addons/tsl/display/GodraysNode.js';
+import { bilateralBlur } from 'three/addons/tsl/display/BilateralBlurNode.js';
+import { depthAwareBlend } from 'three/addons/tsl/display/depthAwareBlend.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { checkerTexture, report, str, num, flag } from './_common.js';
+
+const mode = str( 'mode', 'fog' );
+const info = { mode };
+const usePipeline = [ 'postfog', 'volumetric', 'godrays' ].includes( mode );
+const renderer = new THREE.WebGPURenderer( { antialias: ! usePipeline, alpha: false } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = mode === 'sky' ? 0.35 : 1;
+renderer.shadowMap.enabled = true;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( 55, window.innerWidth / window.innerHeight, 0.3, 4000 );
+camera.position.set( 0, 3, 14 );
+camera.lookAt( 0, 6, - 60 );
+
+// sun direction (towards the sun): low golden hour sun, ahead-left of the camera
+const sunDir = new THREE.Vector3().setFromSphericalCoords( 1, THREE.MathUtils.degToRad( 90 - 12 ), THREE.MathUtils.degToRad( 200 ) );
+const sun = new THREE.DirectionalLight( 0xffd2a0, 4 );
+sun.position.copy( sunDir ).multiplyScalar( 120 );
+sun.castShadow = true;
+sun.shadow.mapSize.set( 2048, 2048 );
+Object.assign( sun.shadow.camera, { left: - 70, right: 70, top: 70, bottom: - 70, near: 1, far: 300 } );
+sun.shadow.bias = - 0.0005;
+sun.shadow.normalBias = 0.05;
+scene.add( sun, sun.target );
+
+const groundTex = checkerTexture( 256, 8, '#6f7a5a', '#667052' );
+groundTex.repeat.set( 200, 200 );
+groundTex.anisotropy = 8;
+const ground = new THREE.Mesh( new THREE.PlaneGeometry( 4000, 4000 ), new THREE.MeshStandardMaterial( { map: groundTex, roughness: 0.95 } ) );
+ground.rotation.x = - Math.PI / 2;
+ground.receiveShadow = true;
+scene.add( ground );
+
+// "trees" along a road + far "mountains"
+const trunkMat = new THREE.MeshStandardMaterial( { color: 0x4d3d2c, roughness: 1 } ), leafMat = new THREE.MeshStandardMaterial( { color: 0x29502a, roughness: 0.9 } );
+let seed = 3;
+const rnd = () => ( ( seed = ( seed * 1664525 + 1013904223 ) >>> 0 ) / 4294967296 );
+for ( let i = 0; i < 70; i ++ ) {
+
+	const side = i % 2 ? 1 : - 1, z = 6 - i * 5 + rnd() * 2, x = side * ( 6 + rnd() * 5 ), h = 6 + rnd() * 5;
+	const trunk = new THREE.Mesh( new THREE.CylinderGeometry( 0.25, 0.35, h * 0.5, 8 ), trunkMat );
+	trunk.position.set( x, h * 0.25, z );
+	const crown = new THREE.Mesh( new THREE.ConeGeometry( 2.2, h * 0.8, 12 ), leafMat );
+	crown.position.set( x, h * 0.5 + h * 0.4 - 0.5, z );
+	for ( const m of [ trunk, crown ] ) { m.castShadow = m.receiveShadow = true; scene.add( m ); }
+
+}
+
+const rockMat = new THREE.MeshStandardMaterial( { color: 0x7d7f84, roughness: 0.9, flatShading: true } );
+for ( let i = 0; i < 14; i ++ ) {
+
+	const m = new THREE.Mesh( new THREE.ConeGeometry( 120 + rnd() * 120, 180 + rnd() * 220, 7 ), rockMat );
+	m.position.set( - 900 + i * 140 + rnd() * 60, 60, - 700 - rnd() * 500 );
+	scene.add( m );
+
+}
+
+const pmrem = new THREE.PMREMGenerator( renderer );
+let pipeline = null;
+
+const fogColorHex = 0xd8c8b0;
+
+if ( mode !== 'sky' ) {
+
+	scene.environment = pmrem.fromScene( new RoomEnvironment(), 0.04 ).texture;
+	scene.environmentIntensity = 0.5;
+	scene.background = new THREE.Color( fogColorHex ); // fog does NOT affect the background: match it yourself
+
+}
+
+if ( mode === 'fog' ) {
+
+	scene.fog = new THREE.Fog( fogColorHex, 20, 600 );           // classic objects still work (converted to fogNode internally)
+
+} else if ( mode === 'fogexp2' ) {
+
+	scene.fog = new THREE.FogExp2( fogColorHex, 0.004 );
+
+} else if ( mode === 'fognode' ) {
+
+	// same as FogExp2 but with node inputs (uniforms can be animated)
+	const density = uniform( 0.004 );
+	scene.fogNode = fog( color( fogColorHex ), densityFogFactor( density ) );  // or rangeFogFactor( near, far )
+
+} else if ( mode === 'height' ) {
+
+	// height fog + distance haze + view direction dependent colour (inscatter glow towards the sun)
+	const uSunDir = uniform( sunDir.clone() );
+	const base = color( 0xc9d3dc ), glow = color( 0xffb46b );
+	const viewDir = positionWorld.sub( cameraPosition ).normalize();
+	const sunAmount = saturate( dot( viewDir, uSunDir ) ).pow( 6 );
+	const fogColor = mix( base, glow, sunAmount );
+	const heightFactor = exponentialHeightFogFactor( uniform( 0.0016 ), uniform( 40 ) ); // ( density, height ): fog below y = 40
+	const haze = densityFogFactor( uniform( 0.0007 ) );
+	const factor = heightFactor.oneMinus().mul( haze.oneMinus() ).oneMinus();             // combine transmittances
+	scene.fogNode = fog( fogColor, factor );
+	scene.background = null;
+	const skyDir = normalWorldGeometry;                                                    // direction on the background sphere
+	scene.backgroundNode = mix( mix( base, color( 0x6f97c4 ), skyDir.y.max( 0 ).pow( 0.5 ) ), glow, saturate( dot( skyDir, uSunDir ) ).pow( 6 ) );
+
+} else if ( mode === 'sky' ) {
+
+	const sky = new SkyMesh();
+	sky.scale.setScalar( 3500 );                 // must stay inside camera.far
+	sky.turbidity.value = 6;
+	sky.rayleigh.value = 1.6;
+	sky.mieCoefficient.value = 0.005;
+	sky.mieDirectionalG.value = 0.8;
+	sky.cloudCoverage.value = 0.45;              // 0 disables the clouds
+	sky.cloudDensity.value = 0.5;
+	sky.cloudElevation.value = 0.5;
+	sky.showSunDisc.value = 1;
+	sky.sunPosition.value.copy( sunDir );
+	// lighting from the same sky: render it once into a PMREM
+	const envScene = new THREE.Scene();
+	envScene.add( sky );
+	const rt = pmrem.fromScene( envScene );
+	scene.environment = rt.texture;
+	scene.environmentIntensity = 1;
+	scene.add( sky );                             // then show it (SkyMesh ignores fog)
+	sun.intensity = 12;
+	scene.fogNode = fog( color( 0xc4c9d0 ).mul( 3 ), rangeFogFactor( 100, 2500 ) );
+	info.sky = { fog: sky.material.fog, depthWrite: sky.material.depthWrite, side: sky.material.side === THREE.BackSide ? 'BackSide' : sky.material.side };
+
+} else if ( mode === 'postfog' ) {
+
+	// fog as a post effect: also covers the background; uses the depth of the scene pass
+	pipeline = new THREE.RenderPipeline( renderer );
+	const scenePass = pass( scene, camera, { samples: 4 } );
+	const viewZ = scenePass.getViewZNode();                                    // negative view space z
+	const factor = rangeFogFactor( 20, 600 ).context( { getViewZ: () => viewZ } );
+	pipeline.outputNode = vec4( factor.mix( scenePass.rgb, color( fogColorHex ) ), 1 );
+	scene.background = new THREE.Color( 0x3a6ea5 );                            // gets fogged as well (depth = far)
+
+} else if ( mode === 'volumetric' ) {
+
+	// light shafts: VolumeNodeMaterial on a box (own layer) lit by the shadow casting sun, low resolution pass + blur
+	const LAYER = 10;
+	const vm = new THREE.VolumeNodeMaterial();
+	vm.steps = num( 'steps', 16 );
+	vm.offsetNode = interleavedGradientNoise( screenCoordinate );              // dither the ray start
+	vm.scatteringNode = Fn( ( { positionRay } ) => {
+
+		const n = triNoise3D( positionRay.mul( 0.02 ), 0.2, time );
+		return float( 0.012 ).mul( n.mul( 0.8 ).add( 0.6 ) ).mul( positionRay.y.smoothstep( 22, 2 ) ); // density, thinner with height
+
+	} );
+	const vol = new THREE.Mesh( new THREE.BoxGeometry( 140, 30, 260 ), vm );
+	vol.position.set( 0, 15, - 100 );
+	vol.layers.disableAll();
+	vol.layers.enable( LAYER );
+	scene.add( vol );
+	sun.layers.enable( LAYER );                                                 // lights that should scatter
+
+	pipeline = new THREE.RenderPipeline( renderer );
+	const scenePass = pass( scene, camera, { samples: 4 } );
+	vm.depthNode = scenePass.getTextureNode( 'depth' ).sample( screenUV );      // occlusion by the opaque scene
+	const layers = new THREE.Layers();
+	layers.disableAll();
+	layers.enable( LAYER );
+	const volPass = pass( scene, camera, { depthBuffer: false, samples: 0 } );
+	volPass.setLayers( layers );
+	volPass.setResolutionScale( 0.25 );
+	const blurred = gaussianBlur( volPass, uniform( 0.6 ) );
+	pipeline.outputNode = scenePass.add( blurred.mul( uniform( 1.0 ) ) );
+
+} else if ( mode === 'godrays' ) {
+
+	// screen-space raymarch through the shadow map of ONE light (needs light.shadow.map -> not compatible with CSMShadowNode)
+	pipeline = new THREE.RenderPipeline( renderer );
+	const scenePass = pass( scene, camera, { samples: 0 } );
+	const depth = scenePass.getTextureNode( 'depth' );
+	const rays = godrays( depth, camera, sun );
+	rays.raymarchSteps.value = 40;
+	rays.density.value = 0.008;
+	rays.maxDensity.value = 0.6;
+	rays.distanceAttenuation.value = 0.01;
+	rays.resolutionScale = 0.5;
+	const blur = bilateralBlur( rays.getTextureNode() );
+	pipeline.outputNode = depthAwareBlend( scenePass.getTextureNode( 'output' ), blur.getTextureNode(), depth, camera,
+		{ blendColor: color( 0xffd9a8 ), edgeRadius: uniform( 2, 'int' ), edgeStrength: uniform( 2 ) } );
+
+}
+
+pmrem.dispose();
+
+let frame = 0;
+renderer.setAnimationLoop( () => {
+
+	if ( pipeline ) pipeline.render(); else renderer.render( scene, camera );
+	if ( ++ frame === 40 ) {
+
+		info.render = { frameCalls: renderer.info.render.frameCalls, drawCalls: renderer.info.render.drawCalls };
+		info.fogNodeIsNode = scene.fogNode ? scene.fogNode.isNode === true : null;
+		report( info );
+
+	}
+
+} );
+</script>
+</body>
+</html>

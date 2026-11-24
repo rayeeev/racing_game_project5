@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>sky preset preview</title>
+<link rel="icon" href="data:,">
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#hud{position:fixed;left:8px;top:8px;color:#fff;font:12px/1.4 Menlo,Consolas,monospace;background:rgba(0,0,0,.6);padding:6px 9px;white-space:pre;border-radius:4px;pointer-events:none}
+.lbl{position:fixed;bottom:8px;color:#fff;font:13px/1.3 Menlo,Consolas,monospace;background:rgba(0,0,0,.6);padding:4px 8px;border-radius:4px;white-space:pre}
+</style>
+</head>
+<body>
+<div id="hud"></div>
+<!--
+Sky preset preview / verification page (three r187 WebGPURenderer). Uses /assets/sky/<preset>/{meta.json,sky.hdr,env.hdr}.
+
+Query params
+  preset    golden | noon | overcast | dusk                                   (default golden)
+  mode      beauty | dir | energy                                             (default beauty)
+              beauty : car + grey ground + grey cards, sky.hdr background, env.hdr lighting, sun light from meta
+              dir    : poles / sphere casting shadows + a ring marker drawn at meta.sunDirection (sun-direction check)
+              energy : white Lambert sphere lit by  A) sky.hdr as environment (no light)
+                                                    A') exact 512x256 reference with the sun inside (assets-src/sky/_ref)
+                                                    B) env.hdr + DirectionalLight from meta        -> window.__energy
+  view      beauty: front | sun          dir: sun | side | top | opp | custom (+ yaw=<azimuth> pitch=<deg>)   (default front / sun)
+  tone      aces | agx | neutral | none   (default aces)       exposure  number (default meta.exposure[tone])
+  sunI      override DirectionalLight intensity                sunScale  multiplier on it (default 1)
+  envI      scene.environmentIntensity (default meta.ambientIntensity)
+  bg        tex  = scene.background = equirect texture (default; three converts it to a 2048 px cube)
+            node = scene.backgroundNode = texture( sky, equirectUV( rotation * positionWorldDirection ) )  (samples the
+                   equirect directly, no cube conversion; honours rot= and skyClamp=)
+            node0 = scene.backgroundNode = texture( sky, equirectUV() )  (plain form, rot ignored)
+  sky       4k (default) | 2k  = background from sky.hdr or the optional sky_2k.hdr
+  rot       rotate sky + lighting around +Y by this many degrees (scene.backgroundRotation / environmentRotation)
+  shadows   1 | 0 (default 1)     marker 1 | 0 (default 1 in dir mode)     car 1 | 0     cards 1 | 0     fov number
+  extra     beauty: comma-separated GLB urls placed beside the car (LOD0 nodes only), extraScale / extraRot / extraBack / extraX
+  post      beauty: bloom = RenderPipeline with a bloom pass (bloomStrength 0.35, bloomRadius 0.4, bloomThreshold 1)
+  skyClamp  with bg=node: clamp the background radiance to this value (the raw sun disc is ~65504)
+  az, el, dist   beauty-mode camera override (azimuth relative to the sun, elevation, distance)
+
+After load: window.__ready === true, window.__meta, window.__cards (screen positions of the grey cards), window.__energy,
+            window.__info.memory (renderer.info.memory), and with gpulog=1 window.__info.gpuTextures / gpuTextureMB
+            (every GPUTexture allocated by the page, sized from its descriptor; gpuTextureMB sums the ones still alive).
+-->
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { texture, equirectUV, positionWorldDirection, uniform, pass, vec3, min } from 'three/tsl';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+const q = new URLSearchParams( location.search );
+const num = ( k, d ) => ( q.has( k ) ? Number( q.get( k ) ) : d );
+const str = ( k, d ) => ( q.has( k ) ? q.get( k ) : d );
+const hud = document.getElementById( 'hud' );
+const D2R = Math.PI / 180;
+
+const presetId = str( 'preset', 'golden' );
+const mode = str( 'mode', 'beauty' );
+const meta = await ( await fetch( `/assets/sky/${presetId}/meta.json`, { cache: 'no-store' } ) ).json();
+window.__meta = meta;
+
+// gpulog=1: record every GPUTexture the renderer allocates (exact GPU-side sizes; renderer.info does not size cube render targets)
+const gpuTextures = [];
+if ( num( 'gpulog', 0 ) === 1 && window.GPUDevice ) {
+
+	const BPP = { r8unorm: 1, rg8unorm: 2, rgba8unorm: 4, 'rgba8unorm-srgb': 4, bgra8unorm: 4, 'bgra8unorm-srgb': 4, r16float: 2, rg16float: 4, rgba16float: 8, r32float: 4, rg32float: 8, rgba32float: 16,
+		rg11b10ufloat: 4, rgb9e5ufloat: 4, depth16unorm: 2, depth24plus: 4, 'depth24plus-stencil8': 4, depth32float: 4, 'depth32float-stencil8': 8 };
+	const create = GPUDevice.prototype.createTexture;
+	GPUDevice.prototype.createTexture = function ( desc ) {
+
+		const size = Array.isArray( desc.size ) ? desc.size : [ desc.size.width, desc.size.height ?? 1, desc.size.depthOrArrayLayers ?? 1 ];
+		const [ w, h = 1, d = 1 ] = size;
+		let bytes = 0;
+		for ( let m = 0; m < ( desc.mipLevelCount ?? 1 ); m ++ ) bytes += Math.max( 1, w >> m ) * Math.max( 1, h >> m ) * d * ( BPP[ desc.format ] ?? 4 ) * ( desc.sampleCount ?? 1 );
+		const entry = { label: desc.label || '', format: desc.format, w, h, layers: d, mips: desc.mipLevelCount ?? 1, samples: desc.sampleCount ?? 1, MB: + ( bytes / 1048576 ).toFixed( 1 ), alive: true };
+		gpuTextures.push( entry );
+		const tex = create.call( this, desc );
+		tex.__entry = entry;
+		return tex;
+
+	};
+
+	const destroy = GPUTexture.prototype.destroy;
+	GPUTexture.prototype.destroy = function () {
+
+		if ( this.__entry ) this.__entry.alive = false;
+		return destroy.call( this );
+
+	};
+
+}
+
+const W = window.innerWidth, H = window.innerHeight;
+const renderer = new THREE.WebGPURenderer( { antialias: true } );
+renderer.setPixelRatio( 1 );
+renderer.setSize( W, H );
+const tone = str( 'tone', 'aces' );
+renderer.toneMapping = { aces: THREE.ACESFilmicToneMapping, agx: THREE.AgXToneMapping, neutral: THREE.NeutralToneMapping, none: THREE.NoToneMapping }[ tone ] ?? THREE.ACESFilmicToneMapping;
+const exposure = num( 'exposure', meta.exposure[ tone ] ?? meta.exposure.aces );
+renderer.toneMappingExposure = exposure;
+renderer.shadowMap.enabled = num( 'shadows', 1 ) === 1;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+document.body.appendChild( renderer.domElement );
+await renderer.init();
+
+// ---------------------------------------------------------------------------------------------
+// shared helpers
+// ---------------------------------------------------------------------------------------------
+
+const rotDeg = num( 'rot', 0 );
+const UP = new THREE.Vector3( 0, 1, 0 );
+// meta.sunDirection is valid for the UNROTATED equirect; rotating the sky by +rot about +Y rotates the sun the same way
+const sunDir = new THREE.Vector3( ...meta.sunDirection ).normalize().applyAxisAngle( UP, rotDeg * D2R );
+const sunAz = Math.atan2( sunDir.x, sunDir.z ) / D2R; // 0 = +Z, 90 = +X
+const sunEl = Math.asin( sunDir.y ) / D2R;
+const sunIntensity = num( 'sunI', meta.sunIntensity ) * num( 'sunScale', 1 );
+const sunColor = new THREE.Color().setRGB( ...meta.sunColor ); // linear working space
+const envIntensity = num( 'envI', meta.ambientIntensity ?? 1 );
+
+// sky=2k uses the optional low-memory background (sky_2k.hdr) instead of the 4k one
+const skyUrl = str( 'sky', '4k' ) === '2k' ? meta.files.sky2k : meta.files.sky;
+
+const dirFromAzEl = ( azDeg, elDeg ) => new THREE.Vector3( Math.cos( elDeg * D2R ) * Math.sin( azDeg * D2R ), Math.sin( elDeg * D2R ), Math.cos( elDeg * D2R ) * Math.cos( azDeg * D2R ) );
+
+async function loadHDR( url ) {
+
+	const tex = await new HDRLoader().loadAsync( url );
+	tex.mapping = THREE.EquirectangularReflectionMapping;
+	return tex;
+
+}
+
+function setBackground( scene, skyTex ) {
+
+	if ( str( 'bg', 'tex' ) === 'node0' ) {
+
+		// the plain documented form (no rotation support): scene.backgroundNode = texture( sky, equirectUV() )
+		scene.backgroundNode = texture( skyTex, equirectUV() );
+
+	} else if ( str( 'bg', 'tex' ) === 'node' ) {
+
+		// direct equirect lookup (no cube conversion). Rotation: world dir -> texture dir is the inverse rotation.
+		const m = new THREE.Matrix4().makeRotationY( - rotDeg * D2R );
+		let node = texture( skyTex, equirectUV( uniform( m ).mul( positionWorldDirection ) ) );
+		// skyClamp=<radiance>: clamp the visible sky (the sun disc reaches 65504) before it reaches bloom / TAA
+		if ( q.has( 'skyClamp' ) ) node = min( node.rgb, vec3( num( 'skyClamp', 64 ) ) );
+		scene.backgroundNode = node;
+
+	} else {
+
+		scene.background = skyTex;
+		scene.backgroundRotation.y = rotDeg * D2R;
+
+	}
+
+}
+
+function setEnvironment( scene, envTex ) {
+
+	scene.environment = envTex;
+	scene.environmentIntensity = envIntensity;
+	scene.environmentRotation.y = rotDeg * D2R;
+
+}
+
+function addSun( scene, center, radius, intensity = sunIntensity ) {
+
+	const sun = new THREE.DirectionalLight( sunColor, intensity );
+	sun.position.copy( center ).addScaledVector( sunDir, radius * 6 );
+	sun.target.position.copy( center );
+	sun.castShadow = true;
+	sun.shadow.mapSize.set( 4096, 4096 );
+	sun.shadow.bias = - 0.00015;
+	sun.shadow.normalBias = 0.005;
+	const sc = sun.shadow.camera;
+	sc.left = - radius; sc.right = radius; sc.top = radius; sc.bottom = - radius;
+	// the light sits at 6 radii; receivers of long low-sun shadows lie up to ~8 radii behind the casters
+	sc.near = radius * 3; sc.far = radius * 15;
+	sc.updateProjectionMatrix();
+	scene.add( sun, sun.target );
+	return sun;
+
+}
+
+function lambert( r, g = r, b = r ) {
+
+	// pure Lambert BRDF (no specular lobe) under both direct light and IBL
+	return new THREE.MeshPhysicalMaterial( { color: new THREE.Color().setRGB( r, g, b ), roughness: 1, metalness: 0, specularIntensity: 0 } );
+
+}
+
+function label( text, leftPx ) {
+
+	const d = document.createElement( 'div' );
+	d.className = 'lbl';
+	d.style.left = leftPx + 'px';
+	d.textContent = text;
+	document.body.appendChild( d );
+
+}
+
+const fmt = ( v, n = 3 ) => ( Array.isArray( v ) ? v.map( ( x ) => x.toFixed( n ) ).join( ', ' ) : v.toFixed( n ) );
+const lum = ( c ) => 0.2126 * c[ 0 ] + 0.7152 * c[ 1 ] + 0.0722 * c[ 2 ];
+
+let renderFrame = () => {};
+let afterFrames = async () => {};
+
+// ---------------------------------------------------------------------------------------------
+// mode: dir  (sun direction verification)
+// ---------------------------------------------------------------------------------------------
+
+if ( mode === 'dir' ) {
+
+	const scene = new THREE.Scene();
+	const [ skyTex, envTex ] = await Promise.all( [ loadHDR( skyUrl ), loadHDR( meta.files.env ) ] );
+	setBackground( scene, skyTex );
+	setEnvironment( scene, envTex );
+	if ( meta.hasSun || q.has( 'sunI' ) ) addSun( scene, new THREE.Vector3( 0, 1, 0 ), 9 );
+
+	const ground = new THREE.Mesh( new THREE.PlaneGeometry( 600, 600 ), new THREE.MeshStandardMaterial( { color: new THREE.Color().setRGB( 0.3, 0.3, 0.3 ), roughness: 0.95 } ) );
+	ground.rotation.x = - Math.PI / 2;
+	ground.receiveShadow = true;
+	scene.add( ground );
+
+	const hs = new THREE.Vector3( sunDir.x, 0, sunDir.z ).normalize(); // horizontal direction toward the sun
+	const side = new THREE.Vector3().crossVectors( UP, hs ).normalize();
+	const poleMat = new THREE.MeshStandardMaterial( { color: new THREE.Color().setRGB( 0.75, 0.75, 0.75 ), roughness: 0.8 } );
+	for ( let i = - 2; i <= 2; i ++ ) {
+
+		const h = i === 0 ? 3 : 1.6;
+		const pole = new THREE.Mesh( new THREE.BoxGeometry( 0.12, h, 0.12 ), poleMat );
+		pole.position.copy( side ).multiplyScalar( i * 1.6 ).add( new THREE.Vector3( 0, h / 2, 0 ) );
+		pole.rotation.y = sunAz * D2R;
+		pole.castShadow = true; pole.receiveShadow = true;
+		scene.add( pole );
+
+	}
+
+	const ball = new THREE.Mesh( new THREE.SphereGeometry( 0.5, 48, 24 ), new THREE.MeshStandardMaterial( { color: new THREE.Color().setRGB( 0.8, 0.8, 0.8 ), roughness: 0.6 } ) );
+	ball.position.copy( side ).multiplyScalar( 0.8 ).addScaledVector( hs, - 1.6 ).add( new THREE.Vector3( 0, 0.5, 0 ) );
+	ball.castShadow = true; ball.receiveShadow = true;
+	scene.add( ball );
+	const chrome = new THREE.Mesh( new THREE.SphereGeometry( 0.5, 48, 24 ), new THREE.MeshStandardMaterial( { color: 0xffffff, roughness: 0.02, metalness: 1 } ) );
+	chrome.position.copy( side ).multiplyScalar( - 0.8 ).addScaledVector( hs, - 1.6 ).add( new THREE.Vector3( 0, 0.5, 0 ) );
+	chrome.castShadow = true; chrome.receiveShadow = true;
+	scene.add( chrome );
+
+	// ground arrows: yellow -> toward the sun (horizontal part of sunDirection), cyan -> where shadows must fall
+	const flat = ( color, from, to ) => {
+
+		const len = from.distanceTo( to );
+		const m = new THREE.Mesh( new THREE.BoxGeometry( 0.05, 0.004, len ), new THREE.MeshBasicMaterial( { color, toneMapped: false } ) );
+		m.position.copy( from ).add( to ).multiplyScalar( 0.5 ); m.position.y = 0.012;
+		m.lookAt( to.x, 0.012, to.z );
+		scene.add( m );
+		const tip = new THREE.Mesh( new THREE.ConeGeometry( 0.14, 0.4, 16 ), new THREE.MeshBasicMaterial( { color, toneMapped: false } ) );
+		tip.position.set( to.x, 0.02, to.z );
+		tip.quaternion.setFromUnitVectors( UP, to.clone().sub( from ).setY( 0 ).normalize() );
+		scene.add( tip );
+
+	};
+	const base = side.clone().multiplyScalar( 4.4 );
+	flat( 0xffd400, base.clone(), base.clone().addScaledVector( hs, 2.2 ) );
+	flat( 0x00c8ff, base.clone(), base.clone().addScaledVector( hs, - 2.2 ) );
+
+	const view = str( 'view', 'sun' );
+	// high suns need a wider lens to get the ground objects and the marker into one frame
+	const camera = new THREE.PerspectiveCamera( num( 'fov', sunEl > 30 && view !== 'top' ? 90 : 75 ), W / H, 0.05, 5000 );
+	let pitch = 0;
+	if ( view === 'top' ) {
+
+		camera.position.set( 0, 26, 0 );
+		camera.up.set( 0, 0, - 1 );
+		camera.lookAt( 0, 0, 0 );
+
+	} else {
+
+		// view=custom&yaw=<absolute azimuth>&pitch=<deg> looks in an arbitrary direction (e.g. yaw=270 = equirect seam at -X)
+		const azView = view === 'custom' ? num( 'yaw', 0 ) : sunAz + ( { sun: 0, side: - 90, opp: 180 }[ view ] ?? 0 );
+		pitch = view === 'sun' ? Math.min( 18, Math.max( 4, sunEl - 30 ) ) : ( view === 'opp' ? 4 : Math.min( 18, Math.max( 2, sunEl - 34 ) ) );
+		if ( q.has( 'pitch' ) ) pitch = num( 'pitch', 0 );
+		const fwd = dirFromAzEl( azView, 0 );
+		const dist = sunEl > 30 ? 13 : 12;
+		camera.position.copy( fwd ).multiplyScalar( - dist ).add( new THREE.Vector3( 0, 2.0, 0 ) );
+		camera.lookAt( camera.position.clone().add( dirFromAzEl( azView, pitch ) ) );
+
+	}
+
+	camera.updateMatrixWorld( true );
+
+	// marker drawn exactly at meta.sunDirection: ring of 2 deg radius + 4 ticks from 0.5 to 1.5 deg
+	if ( num( 'marker', 1 ) === 1 ) {
+
+		const Dm = 900;
+		const marker = new THREE.Group();
+		const mm = new THREE.MeshBasicMaterial( { color: 0xff00c8, toneMapped: false, depthTest: false, side: THREE.DoubleSide, fog: false } );
+		const ring = new THREE.Mesh( new THREE.RingGeometry( Dm * Math.tan( 2.0 * D2R ), Dm * Math.tan( 2.12 * D2R ), 96 ), mm );
+		marker.add( ring );
+		for ( let k = 0; k < 4; k ++ ) {
+
+			const a = k * Math.PI / 2;
+			const tick = new THREE.Mesh( new THREE.PlaneGeometry( Dm * ( Math.tan( 1.5 * D2R ) - Math.tan( 0.5 * D2R ) ), Dm * Math.tan( 0.06 * D2R ) ), mm );
+			const r = Dm * Math.tan( 1.0 * D2R );
+			tick.position.set( Math.cos( a ) * r, Math.sin( a ) * r, 0 );
+			tick.rotation.z = a;
+			marker.add( tick );
+
+		}
+
+		marker.position.copy( camera.position ).addScaledVector( sunDir, Dm );
+		marker.lookAt( camera.position );
+		marker.renderOrder = 10;
+		scene.add( marker );
+
+	}
+
+	hud.style.top = 'auto'; hud.style.bottom = '8px'; // keep the top of the frame free for the sun marker
+	hud.textContent = `preset ${presetId}  mode dir  view ${view}  bg=${str( 'bg', 'tex' )}  rot ${rotDeg}\n`
+		+ `meta.sunDirection ${fmt( meta.sunDirection, 4 )}  (az ${meta.sunAzimuthDeg}  el ${meta.sunElevationDeg})  hasSun ${meta.hasSun}\n`
+		+ `magenta ring/ticks = sunDirection (ring radius 2 deg)   yellow arrow = toward sun   cyan arrow = expected shadow direction`;
+	renderFrame = () => renderer.render( scene, camera );
+	window.__scene = scene; window.__camera = camera;
+
+}
+
+// ---------------------------------------------------------------------------------------------
+// mode: energy  (sun-in-IBL versus env + DirectionalLight)
+// ---------------------------------------------------------------------------------------------
+
+if ( mode === 'energy' ) {
+
+	const refUrl = `/assets-src/sky/_ref/${presetId}_ref512.hdr`;
+	const expected = await fetch( `/assets-src/sky/_ref/${presetId}_expected.json`, { cache: 'no-store' } ).then( ( r ) => ( r.ok ? r.json() : null ) ).catch( () => null );
+	const [ skyTex, envTex, refTex ] = await Promise.all( [ loadHDR( skyUrl ), loadHDR( meta.files.env ), loadHDR( refUrl ) ] );
+
+	const center = new THREE.Vector3( 0, 1, 0 );
+	const sphereGeo = new THREE.SphereGeometry( 1, 96, 48 );
+	const groundGeo = new THREE.PlaneGeometry( 800, 800 );
+	const GROUND_ALBEDO = 0.5;
+
+	function makeScene( envTex, withSun ) {
+
+		const scene = new THREE.Scene();
+		setBackground( scene, skyTex );
+		setEnvironment( scene, envTex );
+		const sphere = new THREE.Mesh( sphereGeo, lambert( 1 ) );
+		sphere.position.copy( center );
+		sphere.castShadow = true; sphere.receiveShadow = true;
+		const ground = new THREE.Mesh( groundGeo, lambert( GROUND_ALBEDO ) );
+		ground.rotation.x = - Math.PI / 2;
+		ground.receiveShadow = true;
+		scene.add( sphere, ground );
+		if ( withSun && sunIntensity > 0 ) addSun( scene, center, 6 );
+		return scene;
+
+	}
+
+	const variants = [
+		{ key: 'A', title: 'A  sky.hdr as environment (HalfFloat loader), no light', scene: makeScene( skyTex, false ) },
+		{ key: 'Aref', title: "A' exact 512x256 reference incl. sun, no light", scene: makeScene( refTex, false ) },
+		{ key: 'B', title: 'B  env.hdr + DirectionalLight (meta)', scene: makeScene( envTex, true ) },
+	];
+
+	const camera = new THREE.PerspectiveCamera( 32, ( W / 3 ) / H, 0.1, 3000 );
+	camera.position.copy( center ).addScaledVector( dirFromAzEl( sunAz + 42, 6 ), 9.5 );
+	camera.lookAt( center.x, 0.9, center.z );
+
+	// measurement cameras: orthographic view from the sun (sphere centre = sun-facing point), and straight down on open ground
+	const N = 256;
+	const camSun = new THREE.OrthographicCamera( - 2, 2, 2, - 2, 0.1, 2000 );
+	camSun.position.copy( center ).addScaledVector( sunDir, 60 );
+	camSun.up.set( 0, 1, 0 );
+	camSun.lookAt( center );
+	const camDown = new THREE.OrthographicCamera( - 2, 2, 2, - 2, 0.1, 100 );
+	camDown.position.set( 150, 30, 0 );
+	camDown.up.set( 0, 0, - 1 );
+	camDown.lookAt( 150, 0, 0 );
+	const rt = new THREE.RenderTarget( N, N, { type: THREE.FloatType, depthBuffer: true, samples: 0 } );
+
+	async function capture( scene, cam ) {
+
+		const bg = scene.background, bgNode = scene.backgroundNode;
+		scene.background = new THREE.Color( 0, 0, 0 ); scene.backgroundNode = null;
+		renderer.setRenderTarget( rt );
+		renderer.render( scene, cam );
+		renderer.setRenderTarget( null );
+		scene.background = bg; scene.backgroundNode = bgNode;
+		return renderer.readRenderTargetPixelsAsync( rt, 0, 0, N, N );
+
+	}
+
+	function discMean( px, rFrac ) {
+
+		// sphere radius 1 in a 4 m wide ortho view -> disc radius N / 4 px
+		const R = N / 4 * rFrac, c = ( N - 1 ) / 2;
+		const s = [ 0, 0, 0 ];
+		let n = 0;
+		for ( let y = 0; y < N; y ++ ) for ( let x = 0; x < N; x ++ ) {
+
+			if ( ( x - c ) * ( x - c ) + ( y - c ) * ( y - c ) > R * R ) continue;
+			const o = ( y * N + x ) * 4;
+			s[ 0 ] += px[ o ]; s[ 1 ] += px[ o + 1 ]; s[ 2 ] += px[ o + 2 ]; n ++;
+
+		}
+
+		return s.map( ( v ) => v / n );
+
+	}
+
+	function allMean( px ) {
+
+		const s = [ 0, 0, 0 ];
+		for ( let i = 0; i < N * N; i ++ ) { s[ 0 ] += px[ i * 4 ]; s[ 1 ] += px[ i * 4 + 1 ]; s[ 2 ] += px[ i * 4 + 2 ]; }
+		return s.map( ( v ) => v / ( N * N ) );
+
+	}
+
+	renderer.setScissorTest( true );
+	const colW = Math.floor( W / 3 );
+	renderFrame = () => {
+
+		variants.forEach( ( v, i ) => {
+
+			renderer.setScissor( i * colW, 0, colW, H );
+			renderer.setViewport( i * colW, 0, colW, H );
+			renderer.render( v.scene, camera );
+
+		} );
+
+	};
+
+	variants.forEach( ( v, i ) => label( v.title, i * colW + 8 ) );
+
+	afterFrames = async () => {
+
+		const out = { preset: presetId, sunDirection: sunDir.toArray(), expected, variants: {} };
+		for ( const v of variants ) {
+
+			const pxSun = await capture( v.scene, camSun );
+			const pxDown = await capture( v.scene, camDown );
+			// white Lambert sphere: irradiance = PI * radiance; ground albedo 0.5
+			const centerE = discMean( pxSun, 0.2 ).map( ( x ) => x * Math.PI );
+			const capE = discMean( pxSun, 0.436 ).map( ( x ) => x * Math.PI );
+			const upE = allMean( pxDown ).map( ( x ) => x * Math.PI / GROUND_ALBEDO );
+			out.variants[ v.key ] = { centerE, capE, upE };
+
+		}
+
+		const A = out.variants.A, R = out.variants.Aref, B = out.variants.B;
+		out.ratios = {
+			B_over_A_cap: lum( B.capE ) / lum( A.capE ), B_over_Aref_cap: lum( B.capE ) / lum( R.capE ),
+			B_over_A_center: lum( B.centerE ) / lum( A.centerE ), B_over_Aref_center: lum( B.centerE ) / lum( R.centerE ),
+			B_over_A_up: lum( B.upE ) / lum( A.upE ), B_over_Aref_up: lum( B.upE ) / lum( R.upE ),
+		};
+		if ( expected ) {
+
+			out.ratios.B_center_over_expected = lum( B.centerE ) / lum( expected.caps.center.envPlusSun );
+			out.ratios.B_cap_over_expected = lum( B.capE ) / lum( expected.caps.cap.envPlusSun );
+			out.ratios.B_up_over_expected = lum( B.upE ) / lum( expected.facingUp.envPlusSun );
+			out.ratios.Aref_cap_over_expected = lum( R.capE ) / lum( expected.caps.cap.envPlusSun );
+			out.ratios.A_cap_over_expected = lum( A.capE ) / lum( expected.caps.cap.envPlusSun );
+
+		}
+
+		window.__energy = out;
+		const row = ( name, v ) => `${name.padEnd( 5 )} cap(n.s>0.9) E = ${fmt( v.capE )}  lum ${fmt( lum( v.capE ) )}   up-facing E = ${fmt( v.upE )}  lum ${fmt( lum( v.upE ) )}`;
+		hud.textContent = `preset ${presetId}  mode energy   measured irradiance on a white Lambert sphere (ortho view from the sun) and on the ground\n`
+			+ row( 'A', A ) + '\n' + row( "A'", R ) + '\n' + row( 'B', B ) + '\n'
+			+ ( expected ? `CPU  cap E = ${fmt( expected.caps.cap.envPlusSun )}  lum ${fmt( lum( expected.caps.cap.envPlusSun ) )}   up-facing E = ${fmt( expected.facingUp.envPlusSun )}  lum ${fmt( lum( expected.facingUp.envPlusSun ) )}   (exact integral of the unclipped 4k sky)\n` : '' )
+			+ `sun-facing cap:  B / A = ${fmt( out.ratios.B_over_A_cap )}   B / A' = ${fmt( out.ratios.B_over_Aref_cap )}`
+			+ ( expected ? `   B / CPU = ${fmt( out.ratios.B_cap_over_expected )}` : '' ) + '\n'
+			+ `up-facing ground: B / A = ${fmt( out.ratios.B_over_A_up )}   B / A' = ${fmt( out.ratios.B_over_Aref_up )}`
+			+ ( expected ? `   B / CPU = ${fmt( out.ratios.B_up_over_expected )}` : '' );
+
+	};
+
+	// display exposure: keep the white sphere below clipping
+	const eRef = expected ? lum( expected.caps.cap.envPlusSun ) : 5;
+	renderer.toneMappingExposure = num( 'exposure', 0.62 * Math.PI / eRef );
+
+}
+
+// ---------------------------------------------------------------------------------------------
+// mode: beauty
+// ---------------------------------------------------------------------------------------------
+
+if ( mode === 'beauty' ) {
+
+	const scene = new THREE.Scene();
+	const [ skyTex, envTex ] = await Promise.all( [ loadHDR( skyUrl ), loadHDR( meta.files.env ) ] );
+	setBackground( scene, skyTex );
+	setEnvironment( scene, envTex );
+	if ( sunIntensity > 0 ) addSun( scene, new THREE.Vector3( 0, 0.6, 0 ), 5.5 );
+
+	const ground = new THREE.Mesh( new THREE.PlaneGeometry( 3000, 3000 ), new THREE.MeshStandardMaterial( { color: new THREE.Color().setRGB( 0.2, 0.2, 0.2 ), roughness: num( 'groundRough', 0.9 ), metalness: 0 } ) );
+	ground.rotation.x = - Math.PI / 2;
+	ground.receiveShadow = true;
+	scene.add( ground );
+
+	const view = str( 'view', 'front' );
+	// camera azimuth relative to the sun: "front" = sun behind the camera's shoulder, "sun" = looking toward the sun
+	const relAz = num( 'az', view === 'sun' ? 180 + 24 : 52 );
+	const camAz = sunAz + relAz;
+	const camEl = num( 'el', 2.6 );
+	const camDist = num( 'dist', 8.6 );
+	const camera = new THREE.PerspectiveCamera( num( 'fov', 40 ), W / H, 0.05, 6000 );
+	const target = new THREE.Vector3( 0, num( 'ty', 1.3 ), 0 );
+	camera.position.copy( target ).addScaledVector( dirFromAzEl( camAz, camEl ), camDist );
+	camera.position.y = Math.max( 0.35, camera.position.y );
+	camera.lookAt( target );
+	camera.updateMatrixWorld( true );
+
+	if ( num( 'car', 1 ) === 1 ) {
+
+		const draco = new DRACOLoader().setDecoderPath( '/libs/draco/gltf/' );
+		const gltf = await new GLTFLoader().setDRACOLoader( draco ).loadAsync( str( 'model', '/assets-src/car/ferrari/ferrari.glb' ) );
+		const car = gltf.scene;
+		// simple showroom materials (the real game car is produced by another pipeline step)
+		const paint = new THREE.MeshPhysicalMaterial( { color: new THREE.Color( '#' + str( 'paint', '7a0c10' ) ), metalness: 0.55, roughness: 0.42, clearcoat: 1, clearcoatRoughness: 0.035 } );
+		const details = new THREE.MeshStandardMaterial( { color: 0xd8d8d8, metalness: 1, roughness: 0.32 } );
+		const glass = new THREE.MeshPhysicalMaterial( { color: 0x0b0d10, metalness: 0, roughness: 0.02, transparent: true, opacity: 0.72 } );
+		const setMat = ( name, mat ) => { const o = car.getObjectByName( name ); if ( o ) o.material = mat; };
+		setMat( 'body', paint );
+		for ( const n of [ 'rim_fl', 'rim_fr', 'rim_rr', 'rim_rl', 'trim' ] ) setMat( n, details );
+		setMat( 'glass', glass );
+		car.traverse( ( o ) => { if ( o.isMesh ) { o.castShadow = true; o.receiveShadow = true; } } );
+		// heading: nose 38 deg off the direction to the camera
+		const box0 = new THREE.Box3().setFromObject( car );
+		const size0 = box0.getSize( new THREE.Vector3() );
+		const longAxisIsZ = size0.z >= size0.x;
+		const toCam = Math.atan2( camera.position.x, camera.position.z );
+		car.rotation.y = toCam + num( 'heading', 38 ) * D2R + ( longAxisIsZ ? 0 : Math.PI / 2 ) + ( num( 'flip', 1 ) ? Math.PI : 0 );
+		car.updateMatrixWorld( true );
+		const box = new THREE.Box3().setFromObject( car );
+		const c = box.getCenter( new THREE.Vector3() );
+		car.position.x -= c.x; car.position.z -= c.z; car.position.y -= box.min.y;
+		scene.add( car );
+		window.__car = { size: size0.toArray() };
+
+	}
+
+	// optional extra models (e.g. rocks) lined up behind / beside the car:  extra=/assets/rocks/a.glb,/assets/rocks/b.glb
+	const extras = str( 'extra', '' ).split( ',' ).map( ( x ) => x.trim() ).filter( Boolean );
+	if ( extras.length ) {
+
+		const draco = new DRACOLoader().setDecoderPath( '/libs/draco/gltf/' );
+		const loader = new GLTFLoader().setDRACOLoader( draco ).setMeshoptDecoder( MeshoptDecoder );
+		const rightH = new THREE.Vector3().setFromMatrixColumn( camera.matrixWorld, 0 ).setY( 0 ).normalize();
+		const toCamH2 = new THREE.Vector3( camera.position.x, 0, camera.position.z ).normalize();
+		let cursor = num( 'extraX', 3.2 );
+		for ( const url of extras ) {
+
+			const g = await loader.loadAsync( url );
+			const root = g.scene;
+			const remove = [];
+			root.traverse( ( o ) => { const m = /_LOD(\d+)$/i.exec( o.name || '' ); if ( m && Number( m[ 1 ] ) !== 0 ) remove.push( o ); } );
+			for ( const o of remove ) o.removeFromParent();
+			root.traverse( ( o ) => { if ( o.isMesh ) { o.castShadow = true; o.receiveShadow = true; } } );
+			root.scale.setScalar( num( 'extraScale', 1 ) );
+			root.rotation.y = num( 'extraRot', 0 ) * D2R;
+			root.updateMatrixWorld( true );
+			const b = new THREE.Box3().setFromObject( root );
+			const sz = b.getSize( new THREE.Vector3() ), c = b.getCenter( new THREE.Vector3() );
+			const half = Math.max( sz.x, sz.z ) * 0.5;
+			const pos = rightH.clone().multiplyScalar( cursor + half ).addScaledVector( toCamH2, - num( 'extraBack', 2.5 ) );
+			root.position.x += pos.x - c.x; root.position.z += pos.z - c.z; root.position.y -= b.min.y;
+			cursor += half * 2 + 0.6;
+			scene.add( root );
+
+		}
+
+	}
+
+	// exposure cards: vertical white / 18 % grey / black facing the camera, and a flat 18 % card on the ground
+	const cards = [];
+	if ( num( 'cards', 1 ) === 1 ) {
+
+		const right = new THREE.Vector3().setFromMatrixColumn( camera.matrixWorld, 0 ).setY( 0 ).normalize();
+		const toCamH = new THREE.Vector3( camera.position.x, 0, camera.position.z ).normalize();
+		const origin = right.clone().multiplyScalar( - 3.05 ).addScaledVector( toCamH, 0.9 );
+		const quad = new THREE.PlaneGeometry( 0.34, 0.34 );
+		const defs = [ [ 'white', 0.9 ], [ 'grey18', 0.18 ], [ 'black', 0.03 ] ];
+		defs.forEach( ( [ name, albedo ], i ) => {
+
+			const m = new THREE.Mesh( quad, lambert( albedo ) );
+			m.position.copy( origin ).addScaledVector( right, ( i - 1 ) * 0.36 ); m.position.y = 0.62;
+			// "front" view: cards face the sun azimuth (sun-lit vertical reading); "sun" view: they face the camera (shade reading)
+			if ( view === 'sun' || ! meta.hasSun ) m.lookAt( camera.position.x, 0.62, camera.position.z );
+			else m.lookAt( m.position.x + sunDir.x, 0.62, m.position.z + sunDir.z );
+			m.castShadow = true; m.receiveShadow = true;
+			scene.add( m );
+			cards.push( { name, mesh: m } );
+
+		} );
+		const post = new THREE.Mesh( new THREE.BoxGeometry( 0.04, 0.45, 0.04 ), lambert( 0.05 ) );
+		post.position.copy( origin ); post.position.y = 0.225; post.position.addScaledVector( toCamH, - 0.03 );
+		post.castShadow = true;
+		scene.add( post );
+		const flat = new THREE.Mesh( new THREE.PlaneGeometry( 0.7, 0.7 ), lambert( 0.18 ) );
+		flat.rotation.x = - Math.PI / 2;
+		flat.position.copy( origin ).addScaledVector( toCamH, 1.3 ); flat.position.y = 0.01;
+		flat.receiveShadow = true;
+		scene.add( flat );
+		cards.push( { name: 'grey18_flat', mesh: flat } );
+		const flatW = new THREE.Mesh( new THREE.PlaneGeometry( 0.7, 0.7 ), lambert( 0.9 ) );
+		flatW.rotation.x = - Math.PI / 2;
+		flatW.position.copy( flat.position ).addScaledVector( right, - 0.78 );
+		flatW.receiveShadow = true;
+		scene.add( flatW );
+		cards.push( { name: 'white_flat', mesh: flatW } );
+
+	}
+
+	scene.updateMatrixWorld( true );
+	window.__cards = cards.map( ( { name, mesh } ) => {
+
+		const p = mesh.getWorldPosition( new THREE.Vector3() ).project( camera );
+		return { name, x: Math.round( ( p.x * 0.5 + 0.5 ) * W ), y: Math.round( ( - p.y * 0.5 + 0.5 ) * H ) };
+
+	} );
+
+	hud.textContent = `preset ${presetId} "${meta.name}"   tone ${tone}  exposure ${exposure}   sun I ${sunIntensity.toFixed( 3 )} color ${fmt( meta.sunColor, 2 )}  el ${meta.sunElevationDeg}   envI ${envIntensity}   bg=${str( 'bg', 'tex' )}`
+		+ ( q.has( 'post' ) ? `   post=${str( 'post', '' )}` : '' ) + ( q.has( 'skyClamp' ) ? `   skyClamp=${num( 'skyClamp', 64 )}` : '' );
+	if ( num( 'hud', 1 ) === 0 ) hud.style.display = 'none';
+	renderFrame = () => renderer.render( scene, camera );
+	if ( str( 'post', '' ) === 'bloom' ) {
+
+		// same bloom settings as dev/spike.html, to see what the unclipped sun disc does to a bloom pass
+		const pipeline = new THREE.RenderPipeline( renderer );
+		const scenePass = pass( scene, camera );
+		const color = scenePass.getTextureNode( 'output' );
+		pipeline.outputNode = color.add( bloom( color, num( 'bloomStrength', 0.35 ), num( 'bloomRadius', 0.4 ), num( 'bloomThreshold', 1.0 ) ) );
+		renderFrame = () => pipeline.render();
+
+	}
+	window.__scene = scene; window.__camera = camera;
+
+}
+
+let frames = 0, busy = false;
+renderer.setAnimationLoop( () => {
+
+	if ( busy ) return;
+	renderFrame();
+	frames ++;
+	if ( frames === 12 ) {
+
+		busy = true;
+		afterFrames().then( () => {
+
+			busy = false;
+			renderFrame();
+			window.__info = { isWebGPU: renderer.backend.isWebGPUBackend === true, mode, preset: presetId, memory: { ...renderer.info.memory }, gpuTextures, gpuTextureMB: + gpuTextures.reduce( ( a, t ) => a + ( t.alive ? t.MB : 0 ), 0 ).toFixed( 1 ) };
+			window.__ready = true;
+
+		} ).catch( ( e ) => { console.error( 'afterFrames failed: ' + ( e && e.stack ? e.stack : e ) ); busy = false; window.__ready = true; } );
+
+	}
+
+} );
+</script>
+</body>
+</html>

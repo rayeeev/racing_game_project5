@@ -1,0 +1,1580 @@
+{
+	"category": "props",
+	"assets": [
+		{
+			"id": "concrete_road_barrier",
+			"file": "/assets/props/concrete_road_barrier.glb",
+			"source": "https://polyhaven.com/a/concrete_road_barrier",
+			"author": "Amal Kumar",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 913940,
+			"materials": [
+				{
+					"name": "concrete_road_barrier",
+					"textureSize": 1024,
+					"doubleSided": false,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "barrier",
+					"size": [
+						1.545,
+						0.829,
+						0.639
+					],
+					"radius": 0.823,
+					"lods": [
+						{
+							"node": "barrier_LOD0",
+							"triangles": 4000
+						},
+						{
+							"node": "barrier_LOD1",
+							"triangles": 800
+						}
+					],
+					"avgColor": "#776a59",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							0.773,
+							0.415,
+							0.319
+						],
+						"center": [
+							0,
+							0.416,
+							0
+						]
+					},
+					"dynamic": false,
+					"mass": 1400,
+					"placement": "roadside",
+					"sink": 0.02,
+					"module": {
+						"axis": "x",
+						"step": 1.6
+					},
+					"notes": "Painted (black/white) concrete road block with a symmetric Jersey profile (0.64 m base, 0.16 m top, 0.83 m high), long axis = X. Place in rows with 1.6 m spacing (5 cm gaps) and align to the road surface; static (about 1400 kg)."
+				}
+			]
+		},
+		{
+			"id": "modular_electricity_poles",
+			"file": "/assets/props/modular_electricity_poles.glb",
+			"source": "https://polyhaven.com/a/modular_electricity_poles",
+			"author": "James Ray Cock",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 1796992,
+			"materials": [
+				{
+					"name": "modular_electricity_poles_pieces",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true
+				},
+				{
+					"name": "modular_electricity_poles",
+					"textureSize": 1024,
+					"doubleSided": false,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "pole_transformer",
+					"size": [
+						1.2,
+						6.13,
+						1.954
+					],
+					"radius": 1.528,
+					"lods": [
+						{
+							"node": "pole_transformer_LOD0",
+							"triangles": 8942
+						},
+						{
+							"node": "pole_transformer_LOD1",
+							"triangles": 1616
+						}
+					],
+					"avgColor": "#6a625a",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.09,
+						"halfHeight": 3,
+						"center": [
+							0,
+							3,
+							0
+						]
+					},
+					"dynamic": false,
+					"placement": "roadside",
+					"sink": 0.08,
+					"wireAnchors": {
+						"upper": [
+							[
+								-0.45,
+								5.835,
+								0.115
+							],
+							[
+								0,
+								5.835,
+								0.115
+							],
+							[
+								0.45,
+								5.835,
+								0.115
+							]
+						],
+						"lower": [
+							[
+								-0.2,
+								4.735,
+								0.115
+							],
+							[
+								0.2,
+								4.735,
+								0.115
+							]
+						]
+					},
+					"notes": "6 m wooden distribution pole, upper 1.2 m cross-arm (3 insulators) + lower 0.7 m cross-arm (2 insulators), transformer can, fuse cut-outs and a guy wire anchored 1.5 m away on -Z. Cross-arms run along X, conductors therefore along Z: orient local Z along the road. No wires in the model: span catenaries between wireAnchors of consecutive poles (3 upper + 2 lower on every variant)."
+				},
+				{
+					"name": "pole_plain",
+					"size": [
+						1.2,
+						6.13,
+						0.852
+					],
+					"radius": 0.627,
+					"lods": [
+						{
+							"node": "pole_plain_LOD0",
+							"triangles": 8967
+						},
+						{
+							"node": "pole_plain_LOD1",
+							"triangles": 1622
+						}
+					],
+					"avgColor": "#635a52",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.09,
+						"halfHeight": 3,
+						"center": [
+							0,
+							3,
+							0
+						]
+					},
+					"dynamic": false,
+					"placement": "roadside",
+					"sink": 0.08,
+					"wireAnchors": {
+						"upper": [
+							[
+								-0.45,
+								5.835,
+								0.115
+							],
+							[
+								0,
+								5.835,
+								0.115
+							],
+							[
+								0.45,
+								5.835,
+								0.115
+							]
+						],
+						"lower": [
+							[
+								-0.2,
+								4.735,
+								0.115
+							],
+							[
+								0.2,
+								4.735,
+								0.115
+							]
+						]
+					},
+					"notes": "6 m wooden distribution pole with two clean cross-arms (3 + 2 insulators), no transformer. Cross-arms run along X, conductors therefore along Z: orient local Z along the road. No wires in the model: span catenaries between wireAnchors of consecutive poles (3 upper + 2 lower on every variant)."
+				},
+				{
+					"name": "pole_offset",
+					"size": [
+						1.287,
+						6.13,
+						0.852
+					],
+					"radius": 0.862,
+					"lods": [
+						{
+							"node": "pole_offset_LOD0",
+							"triangles": 8991
+						},
+						{
+							"node": "pole_offset_LOD1",
+							"triangles": 1572
+						}
+					],
+					"avgColor": "#69625a",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.09,
+						"halfHeight": 3,
+						"center": [
+							0,
+							3,
+							0
+						]
+					},
+					"dynamic": false,
+					"placement": "roadside",
+					"sink": 0.08,
+					"wireAnchors": {
+						"upper": [
+							[
+								-0.7,
+								5.835,
+								0.115
+							],
+							[
+								-0.25,
+								5.835,
+								0.115
+							],
+							[
+								0.2,
+								5.835,
+								0.115
+							]
+						],
+						"lower": [
+							[
+								-0.2,
+								4.735,
+								-0.115
+							],
+							[
+								0.2,
+								4.735,
+								-0.115
+							]
+						]
+					},
+					"notes": "6 m wooden distribution pole, upper cross-arm offset to -X, transformer can + fuse cut-out. Cross-arms run along X, conductors therefore along Z: orient local Z along the road. No wires in the model: span catenaries between wireAnchors of consecutive poles (3 upper + 2 lower on every variant)."
+				}
+			]
+		},
+		{
+			"id": "street_lamp_01",
+			"file": "/assets/props/street_lamp_01.glb",
+			"source": "https://polyhaven.com/a/street_lamp_01",
+			"author": "Josh Dean",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 454460,
+			"materials": [
+				{
+					"name": "street_lamp_01",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true
+				},
+				{
+					"name": "street_lamp_01_glass",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true,
+					"emissive": true,
+					"emissiveColor": "#ffd7a1"
+				}
+			],
+			"variants": [
+				{
+					"name": "lamp",
+					"size": [
+						0.702,
+						3.871,
+						0.386
+					],
+					"radius": 0.352,
+					"lods": [
+						{
+							"node": "lamp_LOD0",
+							"triangles": 5999
+						},
+						{
+							"node": "lamp_LOD1",
+							"triangles": 1299
+						}
+					],
+					"avgColor": "#817f79",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.09,
+						"halfHeight": 1.55,
+						"center": [
+							0,
+							1.55,
+							0
+						]
+					},
+					"dynamic": false,
+					"placement": "paddock",
+					"sink": 0.02,
+					"lights": [
+						{
+							"type": "point",
+							"position": [
+								0,
+								3.3,
+								0
+							],
+							"color": "#ffd7a1",
+							"range": 14
+						}
+					],
+					"notes": "Cast-iron lantern post, 3.87 m. The lantern panes are opaque opal glass with their own material (street_lamp_01_glass, same textures as the post): set its emissive colour/intensity to light the lamp, and add a point light at lights[0]."
+				}
+			]
+		},
+		{
+			"id": "utility_box_02",
+			"file": "/assets/props/utility_box_02.glb",
+			"source": "https://polyhaven.com/a/utility_box_02",
+			"author": "James Ray Cock",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 505616,
+			"materials": [
+				{
+					"name": "utility_box_02",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "cabinet",
+					"size": [
+						0.92,
+						1.12,
+						0.432
+					],
+					"radius": 0.506,
+					"lods": [
+						{
+							"node": "cabinet_LOD0",
+							"triangles": 5000
+						},
+						{
+							"node": "cabinet_LOD1",
+							"triangles": 999
+						}
+					],
+					"avgColor": "#767c63",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							0.46,
+							0.56,
+							0.216
+						],
+						"center": [
+							0,
+							0.56,
+							0
+						]
+					},
+					"dynamic": false,
+					"mass": 120,
+					"placement": "roadside",
+					"sink": 0.01,
+					"notes": "Green electrical distribution cabinet (doors face +Z). Put next to poles / at the paddock entrance."
+				}
+			]
+		},
+		{
+			"id": "old_tyre",
+			"file": "/assets/props/old_tyre.glb",
+			"source": "https://polyhaven.com/a/old_tyre",
+			"author": "MP",
+			"license": "CC0",
+			"textureResolution": 512,
+			"bytes": 352340,
+			"materials": [
+				{
+					"name": "old_tyre",
+					"textureSize": 512,
+					"doubleSided": false,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "tyre",
+					"size": [
+						0.6,
+						0.165,
+						0.6
+					],
+					"radius": 0.3,
+					"lods": [
+						{
+							"node": "tyre_LOD0",
+							"triangles": 2000
+						},
+						{
+							"node": "tyre_LOD1",
+							"triangles": 560
+						}
+					],
+					"avgColor": "#221f1c",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.3,
+						"halfHeight": 0.082,
+						"center": [
+							0,
+							0.082,
+							0
+						]
+					},
+					"dynamic": true,
+					"mass": 9,
+					"placement": "roadside",
+					"sink": 0,
+					"notes": "Single worn car tyre lying flat (0.60 m diameter, 0.165 m wide). Stack 3-5 as separate dynamic bodies for corner protection."
+				},
+				{
+					"name": "tyre_stack4",
+					"size": [
+						0.631,
+						0.654,
+						0.636
+					],
+					"radius": 0.324,
+					"lods": [
+						{
+							"node": "tyre_stack4_LOD0",
+							"triangles": 5200
+						},
+						{
+							"node": "tyre_stack4_LOD1",
+							"triangles": 1600
+						}
+					],
+					"avgColor": "#221f1c",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.318,
+						"halfHeight": 0.327,
+						"center": [
+							0.003,
+							0.327,
+							0.002
+						]
+					},
+					"dynamic": true,
+					"mass": 36,
+					"placement": "roadside",
+					"sink": 0,
+					"notes": "Four tyres pre-stacked into one mesh (0.65 m high) for cheap tyre walls: one rigid body (36 kg) or static. For stacks that can scatter, spawn 4 x \"tyre\" instead."
+				}
+			]
+		},
+		{
+			"id": "covered_car",
+			"file": "/assets/props/covered_car.glb",
+			"source": "https://polyhaven.com/a/covered_car",
+			"author": "MP",
+			"license": "CC0",
+			"textureResolution": 2048,
+			"bytes": 2256440,
+			"materials": [
+				{
+					"name": "covered_car",
+					"textureSize": 2048,
+					"doubleSided": true,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "car",
+					"size": [
+						1.789,
+						1.411,
+						4.38
+					],
+					"radius": 2.281,
+					"lods": [
+						{
+							"node": "car_LOD0",
+							"triangles": 12592
+						},
+						{
+							"node": "car_LOD1",
+							"triangles": 2594
+						}
+					],
+					"avgColor": "#4d453f",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							0.87,
+							0.62,
+							2.15
+						],
+						"center": [
+							0,
+							0.72,
+							0
+						]
+					},
+					"dynamic": false,
+					"mass": 1250,
+					"placement": "roadside",
+					"sink": 0,
+					"notes": "Saloon car under a dusty tarpaulin, length along Z (4.38 m), bonnet towards +Z. Park it in a lay-by or behind the paddock; static obstacle."
+				}
+			]
+		},
+		{
+			"id": "Barrel_01",
+			"file": "/assets/props/Barrel_01.glb",
+			"source": "https://polyhaven.com/a/Barrel_01",
+			"author": "Jorge Camacho",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 721532,
+			"materials": [
+				{
+					"name": "Barrel_01",
+					"textureSize": 1024,
+					"doubleSided": false,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "barrel",
+					"size": [
+						0.563,
+						0.88,
+						0.563
+					],
+					"radius": 0.282,
+					"lods": [
+						{
+							"node": "barrel_LOD0",
+							"triangles": 2682
+						},
+						{
+							"node": "barrel_LOD1",
+							"triangles": 640
+						}
+					],
+					"avgColor": "#8b281d",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.282,
+						"halfHeight": 0.44,
+						"center": [
+							0,
+							0.44,
+							0
+						]
+					},
+					"dynamic": true,
+					"mass": 18,
+					"placement": "paddock",
+					"sink": 0,
+					"notes": "Red 200 l steel drum with hazard decal (empty: 18 kg; use ~200 kg if it should feel full)."
+				}
+			]
+		},
+		{
+			"id": "barrel_03",
+			"file": "/assets/props/barrel_03.glb",
+			"source": "https://polyhaven.com/a/barrel_03",
+			"author": "Serhii Khromov",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 531612,
+			"materials": [
+				{
+					"name": "barrel_03",
+					"textureSize": 1024,
+					"doubleSided": false,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "barrel",
+					"size": [
+						0.634,
+						0.93,
+						0.639
+					],
+					"radius": 0.319,
+					"lods": [
+						{
+							"node": "barrel_LOD0",
+							"triangles": 1473
+						},
+						{
+							"node": "barrel_LOD1",
+							"triangles": 460
+						}
+					],
+					"avgColor": "#3f5670",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.319,
+						"halfHeight": 0.465,
+						"center": [
+							0,
+							0.465,
+							0
+						]
+					},
+					"dynamic": true,
+					"mass": 18,
+					"placement": "paddock",
+					"sink": 0,
+					"notes": "Blue 200 l steel drum (empty: 18 kg). Mix with Barrel_01 for corner markers / paddock clutter."
+				}
+			]
+		},
+		{
+			"id": "flood_lights",
+			"file": "/assets/props/flood_lights.glb",
+			"source": "https://polyhaven.com/a/flood_lights",
+			"author": "James Ray Cock",
+			"license": "CC0",
+			"textureResolution": 512,
+			"bytes": 548168,
+			"materials": [
+				{
+					"name": "flood_lights",
+					"textureSize": 512,
+					"doubleSided": true,
+					"ao": true
+				},
+				{
+					"name": "flood_lights_glass",
+					"textureSize": 256,
+					"doubleSided": false,
+					"ao": true,
+					"emissive": true,
+					"emissiveColor": "#fff1d6"
+				}
+			],
+			"variants": [
+				{
+					"name": "tripod_double",
+					"size": [
+						0.778,
+						1.788,
+						1.282
+					],
+					"radius": 0.898,
+					"lods": [
+						{
+							"node": "tripod_double_LOD0",
+							"triangles": 6000
+						},
+						{
+							"node": "tripod_double_LOD1",
+							"triangles": 1197
+						}
+					],
+					"avgColor": "#816f53",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.3,
+						"halfHeight": 0.89,
+						"center": [
+							0,
+							0.89,
+							0
+						]
+					},
+					"dynamic": true,
+					"mass": 9,
+					"placement": "paddock",
+					"sink": 0,
+					"lights": [
+						{
+							"type": "spot",
+							"position": [
+								-0.2,
+								1.569,
+								0.09
+							],
+							"direction": [
+								0,
+								-0.05,
+								1
+							],
+							"color": "#fff1d6",
+							"angleDeg": 100,
+							"range": 30
+						},
+						{
+							"type": "spot",
+							"position": [
+								0.2,
+								1.569,
+								0.09
+							],
+							"direction": [
+								0,
+								-0.05,
+								1
+							],
+							"color": "#fff1d6",
+							"angleDeg": 100,
+							"range": 30
+						}
+					],
+					"notes": "Yellow work-light tripod with two halogen heads (1.79 m), heads face +Z. Glass fronts are material flood_lights_glass (opaque, emissive-ready)."
+				},
+				{
+					"name": "tripod_single",
+					"size": [
+						0.782,
+						1.657,
+						1.225
+					],
+					"radius": 0.8,
+					"lods": [
+						{
+							"node": "tripod_single_LOD0",
+							"triangles": 4200
+						},
+						{
+							"node": "tripod_single_LOD1",
+							"triangles": 846
+						}
+					],
+					"avgColor": "#836f4e",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.3,
+						"halfHeight": 0.83,
+						"center": [
+							0,
+							0.83,
+							0
+						]
+					},
+					"dynamic": true,
+					"mass": 7,
+					"placement": "paddock",
+					"sink": 0,
+					"lights": [
+						{
+							"type": "spot",
+							"position": [
+								0,
+								1.569,
+								0.09
+							],
+							"direction": [
+								0,
+								-0.05,
+								1
+							],
+							"color": "#fff1d6",
+							"angleDeg": 100,
+							"range": 30
+						}
+					],
+					"notes": "Work-light tripod with one halogen head (1.66 m), head faces +Z."
+				},
+				{
+					"name": "floor_double",
+					"size": [
+						0.685,
+						0.421,
+						0.224
+					],
+					"radius": 0.343,
+					"lods": [
+						{
+							"node": "floor_double_LOD0",
+							"triangles": 3600
+						},
+						{
+							"node": "floor_double_LOD1",
+							"triangles": 707
+						}
+					],
+					"avgColor": "#7b7061",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							0.342,
+							0.211,
+							0.112
+						],
+						"center": [
+							0,
+							0.209,
+							0.008
+						]
+					},
+					"dynamic": true,
+					"mass": 5,
+					"placement": "paddock",
+					"sink": 0,
+					"lights": [
+						{
+							"type": "spot",
+							"position": [
+								-0.2,
+								0.21,
+								0.09
+							],
+							"direction": [
+								0,
+								0.12,
+								1
+							],
+							"color": "#fff1d6",
+							"angleDeg": 100,
+							"range": 20
+						},
+						{
+							"type": "spot",
+							"position": [
+								0.2,
+								0.21,
+								0.09
+							],
+							"direction": [
+								0,
+								0.12,
+								1
+							],
+							"color": "#fff1d6",
+							"angleDeg": 100,
+							"range": 20
+						}
+					],
+					"notes": "Floor-standing twin halogen work light (0.42 m high), heads face +Z."
+				}
+			]
+		},
+		{
+			"id": "portable_generator",
+			"file": "/assets/props/portable_generator.glb",
+			"source": "https://polyhaven.com/a/portable_generator",
+			"author": "James Ray Cock",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 1010416,
+			"materials": [
+				{
+					"name": "portable_generator",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "generator",
+					"size": [
+						0.818,
+						0.577,
+						0.564
+					],
+					"radius": 0.487,
+					"lods": [
+						{
+							"node": "generator_LOD0",
+							"triangles": 6000
+						},
+						{
+							"node": "generator_LOD1",
+							"triangles": 1194
+						}
+					],
+					"avgColor": "#5b4e38",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							0.409,
+							0.288,
+							0.282
+						],
+						"center": [
+							0,
+							0.288,
+							0
+						]
+					},
+					"dynamic": true,
+					"mass": 45,
+					"placement": "paddock",
+					"sink": 0,
+					"notes": "Yellow 2.5 kVA petrol generator in a tube frame (control panel faces +Z). Pair with flood_lights."
+				}
+			]
+		},
+		{
+			"id": "tool_cart",
+			"file": "/assets/props/tool_cart.glb",
+			"source": "https://polyhaven.com/a/tool_cart",
+			"author": "Savva Zakharov",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 881316,
+			"materials": [
+				{
+					"name": "tool_cart",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "cart",
+					"size": [
+						1.273,
+						0.963,
+						0.754
+					],
+					"radius": 0.728,
+					"lods": [
+						{
+							"node": "cart_LOD0",
+							"triangles": 6000
+						},
+						{
+							"node": "cart_LOD1",
+							"triangles": 1199
+						}
+					],
+					"avgColor": "#465b46",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							0.637,
+							0.482,
+							0.377
+						],
+						"center": [
+							0,
+							0.483,
+							0
+						]
+					},
+					"dynamic": true,
+					"mass": 40,
+					"placement": "paddock",
+					"sink": 0,
+					"notes": "Green steel workshop trolley with two drawers on castors (1.27 x 0.75 x 0.97 m)."
+				}
+			]
+		},
+		{
+			"id": "plastic_crate_02",
+			"file": "/assets/props/plastic_crate_02.glb",
+			"source": "https://polyhaven.com/a/plastic_crate_02",
+			"author": "Fabi_G",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 686500,
+			"materials": [
+				{
+					"name": "plastic_crate_02",
+					"textureSize": 1024,
+					"doubleSided": false,
+					"ao": true,
+					"alphaMode": "MASK",
+					"alphaCutoff": 0.5
+				}
+			],
+			"variants": [
+				{
+					"name": "crate",
+					"size": [
+						0.506,
+						0.254,
+						0.406
+					],
+					"radius": 0.305,
+					"lods": [
+						{
+							"node": "crate_LOD0",
+							"triangles": 5840
+						},
+						{
+							"node": "crate_LOD1",
+							"triangles": 1400
+						}
+					],
+					"avgColor": "#8d5900",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							0.253,
+							0.127,
+							0.203
+						],
+						"center": [
+							0,
+							0.127,
+							0
+						]
+					},
+					"dynamic": true,
+					"mass": 1.8,
+					"placement": "paddock",
+					"sink": 0,
+					"notes": "Orange stackable plastic crate (0.51 x 0.41 x 0.25 m), ventilation slots are alpha-masked. Stack 2-4 as separate dynamic bodies."
+				}
+			]
+		},
+		{
+			"id": "metal_trash_can",
+			"file": "/assets/props/metal_trash_can.glb",
+			"source": "https://polyhaven.com/a/metal_trash_can",
+			"author": "GurJas Studios",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 1827976,
+			"materials": [
+				{
+					"name": "metal_trash_can",
+					"textureSize": 1024,
+					"doubleSided": false,
+					"ao": false
+				},
+				{
+					"name": "metal_trash_can_rust",
+					"textureSize": 1024,
+					"doubleSided": false,
+					"ao": false
+				}
+			],
+			"variants": [
+				{
+					"name": "can_closed",
+					"size": [
+						0.65,
+						0.978,
+						0.556
+					],
+					"radius": 0.333,
+					"lods": [
+						{
+							"node": "can_closed_LOD0",
+							"triangles": 5000
+						},
+						{
+							"node": "can_closed_LOD1",
+							"triangles": 999
+						}
+					],
+					"avgColor": "#69645d",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.285,
+						"halfHeight": 0.49,
+						"center": [
+							0,
+							0.49,
+							0
+						]
+					},
+					"dynamic": true,
+					"mass": 8,
+					"placement": "paddock",
+					"sink": 0,
+					"notes": "Galvanised steel dustbin with the lid on (0.98 m). Paddock, lay-bys, picnic spot."
+				},
+				{
+					"name": "can_rusty_open",
+					"size": [
+						0.773,
+						0.906,
+						0.549
+					],
+					"radius": 0.471,
+					"lods": [
+						{
+							"node": "can_rusty_open_LOD0",
+							"triangles": 5000
+						},
+						{
+							"node": "can_rusty_open_LOD1",
+							"triangles": 999
+						}
+					],
+					"avgColor": "#5a4d42",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.285,
+						"halfHeight": 0.453,
+						"center": [
+							0,
+							0.453,
+							0
+						]
+					},
+					"dynamic": true,
+					"mass": 8,
+					"placement": "paddock",
+					"sink": 0,
+					"notes": "Rusty dustbin, open, with its lid leaning against the side (lid at -X). The collider covers the bin only."
+				}
+			]
+		},
+		{
+			"id": "modular_chainlink_fence",
+			"file": "/assets/props/modular_chainlink_fence.glb",
+			"source": "https://polyhaven.com/a/modular_chainlink_fence",
+			"author": "James Ray Cock (fence wire material: Amal Kumar)",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 2062376,
+			"materials": [
+				{
+					"name": "modular_chainlink_fence_posts",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true
+				},
+				{
+					"name": "modular_chainlink_fence_wire",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true,
+					"alphaMode": "MASK",
+					"alphaCutoff": 0.2,
+					"thinAlpha": true
+				}
+			],
+			"variants": [
+				{
+					"name": "panel_2m",
+					"size": [
+						2.035,
+						2.522,
+						0.148
+					],
+					"radius": 1.074,
+					"lods": [
+						{
+							"node": "panel_2m_LOD0",
+							"triangles": 2999
+						},
+						{
+							"node": "panel_2m_LOD1",
+							"triangles": 552
+						}
+					],
+					"avgColor": "#8c908d",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							1,
+							1.262,
+							0.04
+						],
+						"center": [
+							0,
+							1.262,
+							0
+						]
+					},
+					"dynamic": false,
+					"placement": "paddock",
+					"sink": 0,
+					"module": {
+						"axis": "x",
+						"step": 2,
+						"postAt": -1
+					},
+					"notes": "2 m chain-link module: post at x=-1 plus a 1.91 m mesh panel centred on the pivot (mesh on the +Z face). Chain along X every 2.0 m and close the run with a \"post\"."
+				},
+				{
+					"name": "panel_1m",
+					"size": [
+						1.045,
+						2.522,
+						0.148
+					],
+					"radius": 0.574,
+					"lods": [
+						{
+							"node": "panel_1m_LOD0",
+							"triangles": 2600
+						},
+						{
+							"node": "panel_1m_LOD1",
+							"triangles": 485
+						}
+					],
+					"avgColor": "#8e918e",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							0.5,
+							1.262,
+							0.04
+						],
+						"center": [
+							0,
+							1.262,
+							0
+						]
+					},
+					"dynamic": false,
+					"placement": "paddock",
+					"sink": 0,
+					"module": {
+						"axis": "x",
+						"step": 1,
+						"postAt": -0.5
+					},
+					"notes": "1 m chain-link module: post at x=-0.5 plus a 0.93 m mesh panel. Use to adjust run lengths."
+				},
+				{
+					"name": "gate_2m",
+					"size": [
+						2.026,
+						2.522,
+						0.148
+					],
+					"radius": 1.074,
+					"lods": [
+						{
+							"node": "gate_2m_LOD0",
+							"triangles": 5999
+						},
+						{
+							"node": "gate_2m_LOD1",
+							"triangles": 1058
+						}
+					],
+					"avgColor": "#91928f",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							1,
+							1.262,
+							0.04
+						],
+						"center": [
+							0,
+							1.262,
+							0
+						]
+					},
+					"dynamic": false,
+					"placement": "paddock",
+					"sink": 0,
+					"module": {
+						"axis": "x",
+						"step": 2,
+						"postAt": -1
+					},
+					"notes": "2 m module with a closed 0.95 m personnel gate (same footprint as panel_2m)."
+				},
+				{
+					"name": "corner",
+					"size": [
+						1.114,
+						2.522,
+						1.114
+					],
+					"radius": 1.04,
+					"lods": [
+						{
+							"node": "corner_LOD0",
+							"triangles": 4499
+						},
+						{
+							"node": "corner_LOD1",
+							"triangles": 894
+						}
+					],
+					"avgColor": "#8d908d",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							0.56,
+							1.262,
+							0.56
+						],
+						"center": [
+							0.48,
+							1.262,
+							-0.48
+						]
+					},
+					"dynamic": false,
+					"placement": "paddock",
+					"sink": 0,
+					"notes": "Braced corner: corner post at the pivot, 1 m of mesh towards +X and 1 m towards -Z with diagonal stays. The next posts belong at (1,0,0) and (0,0,-1)."
+				},
+				{
+					"name": "post",
+					"size": [
+						0.148,
+						2.522,
+						0.148
+					],
+					"radius": 0.079,
+					"lods": [
+						{
+							"node": "post_LOD0",
+							"triangles": 1300
+						},
+						{
+							"node": "post_LOD1",
+							"triangles": 250
+						}
+					],
+					"avgColor": "#989796",
+					"collider": {
+						"type": "cylinder",
+						"radius": 0.075,
+						"halfHeight": 1.262,
+						"center": [
+							0,
+							1.262,
+							0
+						]
+					},
+					"dynamic": false,
+					"placement": "paddock",
+					"sink": 0,
+					"notes": "Single 2.52 m galvanised post with clamps: terminates a run of panel modules."
+				}
+			]
+		},
+		{
+			"id": "modular_wooden_pier",
+			"file": "/assets/props/modular_wooden_pier.glb",
+			"source": "https://polyhaven.com/a/modular_wooden_pier",
+			"author": "Rico Cilliers",
+			"license": "CC0",
+			"textureResolution": 2048,
+			"bytes": 5126820,
+			"materials": [
+				{
+					"name": "modular_wooden_pier_planks",
+					"textureSize": 2048,
+					"doubleSided": false,
+					"ao": true
+				},
+				{
+					"name": "modular_wooden_pier_poles",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "pier_long",
+					"size": [
+						3.093,
+						7.516,
+						12.402
+					],
+					"radius": 6.281,
+					"lods": [
+						{
+							"node": "pier_long_LOD0",
+							"triangles": 14981
+						},
+						{
+							"node": "pier_long_LOD1",
+							"triangles": 2966
+						}
+					],
+					"avgColor": "#50473b",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							1.3,
+							2.33,
+							6.2
+						],
+						"center": [
+							0,
+							2.33,
+							0
+						]
+					},
+					"dynamic": false,
+					"placement": "lake",
+					"sink": 0,
+					"deckY": 3.654,
+					"waterlineY": 2.754,
+					"shoreZ": -5.278,
+					"notes": "Old timber jetty, 12.4 m long along Z, 2.5 m wide: shore ramp at -Z (descends 1.6 m below deck level over 3 m), three deck bays, a 7 m rope gantry and the jetty head at +Z. Place with pivot.y = waterLevel - waterlineY (deck about 0.9 m above the water) and local z = shoreZ on the shoreline, +Z pointing out onto the lake; the shore terrain swallows the last metre of the ramp. Piles reach 3.7 m below the deck. The collider is a simple blocking volume (whole footprint up to the pile tops), not a drivable deck."
+				},
+				{
+					"name": "pier_short",
+					"size": [
+						2.559,
+						4.691,
+						9.491
+					],
+					"radius": 4.848,
+					"lods": [
+						{
+							"node": "pier_short_LOD0",
+							"triangles": 8992
+						},
+						{
+							"node": "pier_short_LOD1",
+							"triangles": 1782
+						}
+					],
+					"avgColor": "#4d4539",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							1.3,
+							2.33,
+							4.75
+						],
+						"center": [
+							0,
+							2.33,
+							0
+						]
+					},
+					"dynamic": false,
+					"placement": "lake",
+					"sink": 0,
+					"deckY": 3.654,
+					"waterlineY": 2.754,
+					"shoreZ": -3.821,
+					"notes": "Shorter 9.5 m jetty: shore ramp (-Z), one deck bay and the jetty head (+Z). Same vertical datum and placement rule (waterlineY, shoreZ) as pier_long."
+				},
+				{
+					"name": "mooring_piles",
+					"size": [
+						2.212,
+						3.849,
+						3.081
+					],
+					"radius": 1.849,
+					"lods": [
+						{
+							"node": "mooring_piles_LOD0",
+							"triangles": 2460
+						},
+						{
+							"node": "mooring_piles_LOD1",
+							"triangles": 500
+						}
+					],
+					"avgColor": "#51483b",
+					"collider": {
+						"type": "none"
+					},
+					"dynamic": false,
+					"placement": "lake",
+					"sink": 0,
+					"waterlineY": 2.461,
+					"notes": "Three loose mooring piles (3.85 m long) to scatter next to the jetty; pivot.y = waterLevel - waterlineY keeps them consistent with the pier variants."
+				}
+			]
+		},
+		{
+			"id": "wooden_picnic_table",
+			"file": "/assets/props/wooden_picnic_table.glb",
+			"source": "https://polyhaven.com/a/wooden_picnic_table",
+			"author": "Ulan Cabanilla",
+			"license": "CC0",
+			"textureResolution": 1024,
+			"bytes": 1079940,
+			"materials": [
+				{
+					"name": "wooden_picnic_table_bottom",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true
+				},
+				{
+					"name": "wooden_picnic_table_top",
+					"textureSize": 1024,
+					"doubleSided": true,
+					"ao": true
+				}
+			],
+			"variants": [
+				{
+					"name": "table",
+					"size": [
+						2.241,
+						0.746,
+						3.022
+					],
+					"radius": 1.878,
+					"lods": [
+						{
+							"node": "table_LOD0",
+							"triangles": 5998
+						},
+						{
+							"node": "table_LOD1",
+							"triangles": 1199
+						}
+					],
+					"avgColor": "#604936",
+					"collider": {
+						"type": "box",
+						"halfExtents": [
+							1.12,
+							0.373,
+							1.51
+						],
+						"center": [
+							0,
+							0.373,
+							0
+						]
+					},
+					"dynamic": false,
+					"mass": 90,
+					"placement": "lake",
+					"sink": 0,
+					"notes": "Weathered park picnic table with attached benches - a large 10 ft model: 3.0 m long (Z) x 2.24 m wide (X) over the benches, table top at 0.75 m. Needs flat ground (lake shore meadow, lay-by viewpoint)."
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,78 @@
+{
+	"id": "noon",
+	"name": "Midday",
+	"description": "High neutral sun (48 deg) in a deep blue sky with fair-weather cumulus; crisp shadows.",
+	"hasSun": true,
+	"sunDirection": [ 0.55424, 0.74183, 0.37751 ],
+	"sunElevationDeg": 47.89,
+	"sunAzimuthDeg": 55.74,
+	"sunColor": [ 0.9918, 1, 0.9083 ],
+	"sunColorHex": "fefff4",
+	"sunIntensity": 4.3867,
+	"sunAngularDiameterDeg": 0.53,
+	"shadowSoftness": "sharp",
+	"ambientIntensity": 1,
+	"exposure": {
+		"aces": 0.7,
+		"agx": 0.85
+	},
+	"zenithColor": [ 0.542, 0.5863, 0.7436 ],
+	"horizonColor": [ 0.4492, 0.4833, 0.5887 ],
+	"horizonColors": [
+		[ 0.5182, 0.5631, 0.675 ],
+		[ 0.7626, 0.8527, 1.0327 ],
+		[ 0.6829, 0.7509, 0.9046 ],
+		[ 0.3897, 0.4202, 0.5188 ],
+		[ 0.3161, 0.3287, 0.4104 ],
+		[ 0.301, 0.3073, 0.3829 ],
+		[ 0.2861, 0.2918, 0.3609 ],
+		[ 0.3369, 0.3521, 0.4246 ]
+	],
+	"sunsideHazeColor": [ 0.7804, 0.8847, 1.0913 ],
+	"groundColor": [ 0.1931, 0.2252, 0.3217 ],
+	"averageLuminance": 0.348,
+	"averageColor": [ 0.2987, 0.3475, 0.4983 ],
+	"upperHemisphereLuminance": 0.4707,
+	"skyIrradiance": [ 1.3698, 1.5724, 2.2478 ],
+	"groundIrradiance": [ 0.4946, 0.5791, 0.8488 ],
+	"sunIrradianceHorizontal": [ 3.2273, 3.2542, 2.9559 ],
+	"sunToSkyRatio": 2.045,
+	"envPeakLuminance": 83.304,
+	"skyPeakLuminance": 74901.4,
+	"backgroundClamp": 64,
+	"fog": {
+		"color": [ 0.3633, 0.3862, 0.4717 ],
+		"density": "clear"
+	},
+	"files": {
+		"sky": "/assets/sky/noon/sky.hdr",
+		"sky2k": "/assets/sky/noon/sky_2k.hdr",
+		"env": "/assets/sky/noon/env.hdr",
+		"thumb": "/assets/sky/noon/thumb.jpg",
+		"meta": "/assets/sky/noon/meta.json"
+	},
+	"resolution": {
+		"sky": [ 4096, 2048 ],
+		"sky2k": [ 2048, 1024 ],
+		"env": [ 1024, 512 ]
+	},
+	"conventions": {
+		"space": "three.js world space, Y up, equirect used with EquirectangularReflectionMapping and no rotation",
+		"azimuth": "degrees, atan2(x, z): 0 = +Z, 90 = +X, 180 = -Z, 270 = -X; direction = (cos(el) sin(az), sin(el), cos(el) cos(az))",
+		"horizonColors": "8 sectors of 45 deg centred on azimuth 0, 45, ... 315; elevation band 1..6 deg",
+		"fogColor": "per-channel median of horizonColors (use horizonColors / sunsideHazeColor for direction-dependent fog)",
+		"colors": "linear sRGB (Rec.709 primaries), radiance in the units of sky.hdr / env.hdr",
+		"sunIntensity": "DirectionalLight.intensity for color = sunColor; intensity * color = irradiance removed from env.hdr",
+		"backgroundClamp": "suggested min( skyRadiance, backgroundClamp ) for the visible sky before bloom / TAA (null = not needed)"
+	},
+	"source": "https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
+	"sourceId": "kloofendal_48d_partly_cloudy_puresky",
+	"author": "Greg Zaal (original HDRI), Jarod Guest (sky edit)",
+	"license": "CC0",
+	"sunRemoval": {
+		"maskRadiusDeg": 1,
+		"clampLuminance": 30.492,
+		"clampedPixels4k": 583,
+		"skyPixelsAboveHalfFloatMax": 17
+	}
+}
